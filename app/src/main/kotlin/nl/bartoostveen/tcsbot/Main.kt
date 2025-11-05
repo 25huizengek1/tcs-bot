@@ -143,7 +143,7 @@ private fun Application.processing() {
     allowNonSimpleContentTypes = true
     allowCredentials = true
     if (AppConfig.ENVIRONMENT == AppConfig.Environment.DEVELOPMENT) anyHost()
-    else allowHost(AppConfig.HOSTNAME)
+    else allowHost(AppConfig.HOSTNAME.substringAfter("://"))
   }
   install(ConditionalHeaders)
   install(Compression) { gzip { priority = 1.0 } }
