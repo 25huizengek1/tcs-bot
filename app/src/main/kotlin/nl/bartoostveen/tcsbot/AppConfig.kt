@@ -65,6 +65,8 @@ object AppConfig {
   val CANVAS_COURSE_CODE by variable(::emptyList, list(id))
   val CANVAS_BASE_URL by variable({ "https://canvas.utwente.nl" }, id)
   val DATABASE_CONNECTION_STRING by variable({ "jdbc:sqlite:db.sqlite" }, id)
+  val DATABASE_USERNAME by variable({ "" }, id)
+  val DATABASE_PASSWORD by variable({ "" }, id)
   val MICROSOFT_CLIENT_ID by variable()
   val MICROSOFT_CLIENT_SECRET by variable()
   val MICROSOFT_AUTH_ENDPOINT by variable()
@@ -78,6 +80,8 @@ object AppConfig {
   val database = Database.connect(
     dataSource {
       jdbcUrl = DATABASE_CONNECTION_STRING
+      username = DATABASE_USERNAME
+      password = DATABASE_PASSWORD
       maximumPoolSize = DEFAULT_CONCURRENCY
     },
     databaseConfig = DatabaseConfig {
