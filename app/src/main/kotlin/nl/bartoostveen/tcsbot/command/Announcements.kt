@@ -1,0 +1,155 @@
+@file:OptIn(ExperimentalTime::class)
+
+package nl.bartoostveen.tcsbot.command
+
+import com.vladsch.flexmark.html2md.converter.FlexmarkHtmlConverter
+import dev.minn.jda.ktx.events.onCommand
+import dev.minn.jda.ktx.generics.getChannel
+import dev.minn.jda.ktx.interactions.commands.option
+import dev.minn.jda.ktx.interactions.commands.restrict
+import dev.minn.jda.ktx.interactions.commands.slash
+import dev.minn.jda.ktx.interactions.components.getOption
+import dev.minn.jda.ktx.messages.Embed
+import dev.minn.jda.ktx.messages.send
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+import net.dv8tion.jda.api.JDA
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
+import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
+import nl.bartoostveen.tcsbot.AppConfig
+import nl.bartoostveen.tcsbot.adminPermissions
+import nl.bartoostveen.tcsbot.canvas.Announcement
+import nl.bartoostveen.tcsbot.canvas.getNewAnnouncements
+import nl.bartoostveen.tcsbot.printException
+import nl.bartoostveen.tcsbot.unaryPlus
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.ExperimentalTime
+import kotlin.time.toJavaInstant
+
+context(list: CommandListUpdateAction)
+fun JDA.announceCommands(reload: (() -> Unit)? = startCron(this)) {
+  val redis = AppConfig.redisClient ?: return
+
+  with(list) {
+    slash("announce", "Send an announcement") {
+      restrict(guild = true, adminPermissions)
+      option<String>("text", "The announcement body", required = true)
+    }
+
+    slash("setannouncementchannel", "Set the announcement channel for this guild") {
+      restrict(guild = true, adminPermissions)
+
+      option<String>("text", "The text above the announcement")
+    }
+
+    if (reload != null) slash("reloadannouncements", "Restart cron timer") {
+      restrict(guild = true, adminPermissions)
+    }
+  }
+
+  onCommand("announce") { event ->
+    val body = event.getOption<String>("text")!!
+    +event.deferReply(true)
+
+    val guildId = event.guild!!.id
+    val channelId = redis.get("announcementchannel:$guildId")
+      ?: return@onCommand +event.hook.editOriginal("No announcement channel set!")
+    val text = runCatching { redis.get("announcementtext:${guildId}") }.getOrNull()
+
+    (event.guild?.getChannel(channelId) as? TextChannel)?.send(
+      content = text ?: "",
+      embeds = listOf(
+        Embed(
+          title = "Announcement",
+          authorName = event.member?.nickname ?: event.user.name,
+          authorIcon = event.member?.avatarUrl ?: event.user.effectiveAvatarUrl,
+          timestamp = Clock.System.now().toJavaInstant(),
+          description = body
+        )
+      )
+    )?.queue() ?: return@onCommand +event.hook.editOriginal("Channel <#$channelId> not found!")
+
+    +event.hook.editOriginal("Sent announcement")
+  }
+
+  onCommand("setannouncementchannel") { event ->
+    +event.deferReply(true)
+    val text = event.getOption<String>("text")
+
+    runCatching {
+      val guildId = event.guild!!.id
+      redis.set("announcementchannel:$guildId", event.channelId!!)
+      text?.let { redis.set("announcementtext:${guildId}", it) }
+    }
+      .printException()
+      .onSuccess {
+        +event.hook.editOriginal("Successfully set announcement channel to ${event.channel!!.asMention}")
+      }.onFailure {
+        +event.hook.editOriginal("Failed to set announcement channel, check logs!")
+      }
+  }
+
+  if (reload != null) onCommand("reloadannouncements") { event ->
+    +event.deferReply(true)
+    +event.hook.editOriginal("Sent reload signal")
+    reload()
+  }
+}
+
+private val flexmarkdown = FlexmarkHtmlConverter.builder().build()
+
+suspend fun JDA.sendAnnouncements(guildId: String, channelId: String, announcements: List<Announcement>) {
+  val announcementText = AppConfig.redisClient?.get("announcementtext:$guildId")
+
+  announcements.forEach { announcement ->
+    (getGuildById(guildId)?.getChannel(channelId) as? TextChannel)
+      ?.send(
+        content = announcementText ?: "",
+        embeds = listOf(
+          Embed(
+            title = announcement.title,
+            authorName = announcement.authorName,
+            timestamp = announcement.postedAt.toJavaInstant(),
+            description = flexmarkdown.convert(announcement.message),
+            url = announcement.url
+          )
+        )
+      )?.queue()
+  }
+}
+
+fun startCron(jda: JDA): (() -> Unit)? {
+  val coroutineScope = CoroutineScope(Dispatchers.IO)
+  val reloadChannel = Channel<Unit>()
+  val redis = AppConfig.redisClient ?: return null
+
+  coroutineScope.launch {
+    while (isActive) {
+      val job = launch {
+        while (isActive) {
+          runCatching {
+            val announcements = getNewAnnouncements(AppConfig.CANVAS_COURSE_CODE)
+            redis.keys("announcementchannel:*")
+              .chunked(20) // mget in chunks
+              .forEach { chunk ->
+                redis.mget(*chunk.toTypedArray()).forEachIndexed { i, channelId ->
+                  val guildId = chunk[i].substringAfter(':')
+
+                  runCatching {
+                    jda.sendAnnouncements(guildId, channelId ?: return@runCatching, announcements)
+                  }.printException()
+                }
+              }
+          }.printException()
+
+          delay(30.minutes)
+        }
+      }
+      reloadChannel.receiveCatching()
+      job.cancel()
+    }
+  }
+
+  return { reloadChannel.trySend(Unit) }
+}
