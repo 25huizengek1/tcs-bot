@@ -152,8 +152,8 @@ suspend fun JDA.assignRole(dbMember: Member): Boolean = runCatching {
         val role = dbGuild.verifiedRole?.let { guild.getRoleById(it) } ?: error("Role does not exist")
         val member = guild.retrieveMemberById(dbMember.discordId).await() ?: error("Member left guild")
 
-        +guild.addRoleToMember(member, role)
         +member.modifyNickname(name)
+        +guild.addRoleToMember(member, role)
       }.printException().isSuccess
     }.any { it }
   }
