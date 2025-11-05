@@ -11,23 +11,27 @@ import dev.minn.jda.ktx.interactions.components.row
 import dev.minn.jda.ktx.interactions.components.success
 import dev.minn.jda.ktx.messages.Embed
 import dev.minn.jda.ktx.messages.MessageCreate
-import io.github.crackthecodeabhi.kreds.args.SetOption
+import dev.minn.jda.ktx.messages.send
 import io.ktor.http.encodeURLPath
 import io.ktor.util.generateNonce
-import kotlinx.serialization.Serializable
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
-import nl.bartoostveen.tcsbot.*
+import nl.bartoostveen.tcsbot.AppConfig
+import nl.bartoostveen.tcsbot.adminPermissions
+import nl.bartoostveen.tcsbot.database.*
+import nl.bartoostveen.tcsbot.printException
+import nl.bartoostveen.tcsbot.suspendTransaction
+import nl.bartoostveen.tcsbot.unaryPlus
 import java.awt.Color
 import kotlin.math.min
-import kotlin.time.Duration.Companion.hours
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
+import kotlin.time.toJavaInstant
 
 context(list: CommandListUpdateAction)
 fun JDA.verifyCommands() {
-  val redis = AppConfig.redisClient ?: return
-
   with(list) {
     slash("verify", "Show verification dialog") {
       restrict(guild = true, adminPermissions)
@@ -42,7 +46,7 @@ fun JDA.verifyCommands() {
 
   onCommand("verify") { event ->
     +event.deferReply(true)
-    if (redis.exists("verifiedrole:${event.guild!!.id}") == 0L)
+    if (getGuild(event.guild!!.id)?.verifiedRole == null)
       return@onCommand +event.hook.editOriginal("Set the verified role first using /setverifiedrole!")
     +event.hook.editOriginal(":white_check_mark:")
 
@@ -50,7 +54,8 @@ fun JDA.verifyCommands() {
       embeds += Embed(
         title = "Before you can access significant channels, you need to verify yourself.",
         description = "You can log in using your UT account by tapping the button below\n" +
-          "We won't store any information (see Microsoft authentication dialog) except for your email\n\n" +
+          "This way, we'll update your display name on all module servers you're in, just like in the old official server\n\n" +
+          "We won't store any information (see Microsoft authentication dialog) except for your email\n" +
           "Don't believe me? This bot is entirely open source! (go laugh at my awful code!)\n" +
           "https://github.com/25huizengek1/tcs-bot",
         authorIcon = selfUser.effectiveAvatarUrl,
@@ -65,19 +70,17 @@ fun JDA.verifyCommands() {
 
   onButton("verify") { event ->
     +event.deferReply(true)
+    val dbMember = getMember(event.member!!.id)
+    if (dbMember?.email != null) {
+      assignRole(dbMember)
+      return@onButton +event.hook.editOriginal("Already verified, applying changes...")
+    }
 
     val nonce = generateNonce()
     runCatching {
-      redis.set(
-        key = "nonce:$nonce",
-        value = json.encodeToString(
-          GuildMemberRef(
-            guild = event.guild!!.id,
-            member = event.member!!.id
-          )
-        ),
-        setOption = SetOption.Builder(exSeconds = 1.hours.inWholeSeconds.toULong()).build()
-      )
+      editMember(event.member!!.id, event.guild!!.id) {
+        authNonce = nonce
+      }
     }.printException().onFailure {
       return@onButton +event.hook.editOriginal("An error occurred")
     }
@@ -91,7 +94,9 @@ fun JDA.verifyCommands() {
     +event.deferReply(true)
 
     runCatching {
-      redis.set("verifiedrole:${event.guild!!.id}", role.id)
+      editGuild(event.guild!!.id) {
+        verifiedRole = role.id
+      }
     }.printException().onFailure {
       return@onCommand +event.hook.editOriginal("An error occurred")
     }
@@ -100,22 +105,56 @@ fun JDA.verifyCommands() {
   }
 }
 
-@Serializable
-data class GuildMemberRef(
-  val guild: String,
-  val member: String
+suspend fun JDA.assignRole(
+  name: String,
+  email: String,
+  nonce: String
+) = assignRole(
+  name = name,
+  email = email,
+  dbMember = getMemberByNonce(nonce) ?: error("Invalid nonce")
 )
 
-suspend fun JDA.assignRole(name: String, memberRef: String) = assignRole(
-  name,
-  json.decodeFromString<GuildMemberRef>(memberRef)
-)
+@OptIn(ExperimentalTime::class)
+suspend fun JDA.assignRole(name: String, email: String, dbMember: Member): Boolean {
+  runCatching {
+    editMember(dbMember) {
+      this.name = name
+      this.email = email
+      this.authNonce = null
+    }
+  }
+  runCatching {
+    +retrieveUserById(dbMember.discordId).await().openPrivateChannel().await().send(
+      embeds = listOf(
+        Embed(
+          title = "Successfully retrieved UT Account Info!",
+          description = "You just verified as **$name** with $email, welcome to our server(s)!",
+          authorName = selfUser.asTag,
+          authorUrl = selfUser.effectiveAvatarUrl,
+          color = Color.GREEN.rgb,
+          timestamp = Clock.System.now().toJavaInstant()
+        )
+      )
+    )
+  }
+  return assignRole(dbMember)
+}
 
-suspend fun JDA.assignRole(name: String, memberRef: GuildMemberRef) = runCatching {
-  val role = AppConfig.redisClient?.get("verifiedrole:${memberRef.guild}")
-    ?: error("Role not set, should be unreachable")
-  val guild = getGuildById(memberRef.guild) ?: error("Guild does not exist anymore")
-  val member = guild.retrieveMemberById(memberRef.member).await() ?: error("Member left guild")
-  +guild.addRoleToMember(member, guild.getRoleById(role) ?: error("Role does not exist anymore"))
-  +member.modifyNickname(name.take(min(name.length, 32)))
-}.printException().isSuccess
+suspend fun JDA.assignRole(dbMember: Member): Boolean = runCatching {
+  val name = dbMember.name?.let { it.take(min(it.length, 32)) }
+    ?: error("Invalid state: member cannot have null name")
+
+  suspendTransaction {
+    dbMember.guilds.map { dbGuild ->
+      runCatching {
+        val guild = getGuildById(dbGuild.discordId) ?: error("Guild does not exist anymore")
+        val role = dbGuild.verifiedRole?.let { guild.getRoleById(it) } ?: error("Role does not exist")
+        val member = guild.retrieveMemberById(dbMember.discordId).await() ?: error("Member left guild")
+
+        +guild.addRoleToMember(member, role)
+        +member.modifyNickname(name)
+      }.printException().isSuccess
+    }.any { it }
+  }
+}.printException().getOrDefault(false)

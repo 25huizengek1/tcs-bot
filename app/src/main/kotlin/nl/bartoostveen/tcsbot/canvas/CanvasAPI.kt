@@ -16,6 +16,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import nl.bartoostveen.tcsbot.AppConfig
 import nl.bartoostveen.tcsbot.SerializableInstant
+import nl.bartoostveen.tcsbot.database.getNewest
+import nl.bartoostveen.tcsbot.database.setNewest
 import nl.bartoostveen.tcsbot.printException
 import kotlin.time.ExperimentalTime
 
@@ -52,23 +54,23 @@ suspend fun getNewAnnouncements(course: List<String>): List<Announcement> {
     .printException()
     .getOrElse { return listOf() }
 
-  val redis = AppConfig.redisClient ?: return announcements
-
   return announcements
     .groupBy { it.contextCode }
     .flatMap { (contextCode, list) ->
       // non-empty list
       val announcements = list.sortedBy { it.position }
       runCatching {
-        val oldNewest = redis.get("newest:$contextCode")?.toLongOrNull()
+        val oldNewest = getNewest(contextCode)
         val newest = announcements.last().position
         if (oldNewest == newest) return@runCatching listOf()
 
-        runCatching { redis.set("newest:$contextCode", newest.toString()) } // don't bail if setting new fails
+        runCatching { setNewest(contextCode, newest) } // don't bail if setting new fails
         if (oldNewest == null) return@runCatching announcements
 
-        announcements.subList(announcements.binarySearch { (newest - oldNewest).toInt() } + 1,
-          announcements.size)
+        announcements.subList(
+          announcements.binarySearch { (newest - oldNewest).toInt() } + 1,
+          announcements.size
+        )
       }.getOrElse { listOf() }
     }
 }

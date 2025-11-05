@@ -16,12 +16,12 @@ import kotlinx.coroutines.channels.Channel
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
-import nl.bartoostveen.tcsbot.AppConfig
-import nl.bartoostveen.tcsbot.adminPermissions
+import nl.bartoostveen.tcsbot.*
 import nl.bartoostveen.tcsbot.canvas.Announcement
 import nl.bartoostveen.tcsbot.canvas.getNewAnnouncements
-import nl.bartoostveen.tcsbot.printException
-import nl.bartoostveen.tcsbot.unaryPlus
+import nl.bartoostveen.tcsbot.database.Guild
+import nl.bartoostveen.tcsbot.database.editGuild
+import nl.bartoostveen.tcsbot.database.getGuild
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
@@ -29,8 +29,6 @@ import kotlin.time.toJavaInstant
 
 context(list: CommandListUpdateAction)
 fun JDA.announceCommands(reload: (() -> Unit)? = startCron(this)) {
-  val redis = AppConfig.redisClient ?: return
-
   with(list) {
     slash("announce", "Send an announcement") {
       restrict(guild = true, adminPermissions)
@@ -52,13 +50,12 @@ fun JDA.announceCommands(reload: (() -> Unit)? = startCron(this)) {
     val body = event.getOption<String>("text")!!
     +event.deferReply(true)
 
-    val guildId = event.guild!!.id
-    val channelId = redis.get("announcementchannel:$guildId")
+    val guildData = runCatching { getGuild(event.guild!!.id) }.getOrNull()
+    val channelId = guildData?.announcementChannel
       ?: return@onCommand +event.hook.editOriginal("No announcement channel set!")
-    val text = runCatching { redis.get("announcementtext:${guildId}") }.getOrNull()
 
     (event.guild?.getChannel(channelId) as? TextChannel)?.send(
-      content = text ?: "",
+      content = guildData.announcementText ?: "",
       embeds = listOf(
         Embed(
           title = "Announcement",
@@ -78,9 +75,10 @@ fun JDA.announceCommands(reload: (() -> Unit)? = startCron(this)) {
     val text = event.getOption<String>("text")
 
     runCatching {
-      val guildId = event.guild!!.id
-      redis.set("announcementchannel:$guildId", event.channelId!!)
-      text?.let { redis.set("announcementtext:${guildId}", it) }
+      editGuild(event.guild!!.id) {
+        announcementText = text
+        announcementChannel = event.channelId!!
+      }
     }
       .printException()
       .onSuccess {
@@ -99,13 +97,11 @@ fun JDA.announceCommands(reload: (() -> Unit)? = startCron(this)) {
 
 private val flexmarkdown = FlexmarkHtmlConverter.builder().build()
 
-suspend fun JDA.sendAnnouncements(guildId: String, channelId: String, announcements: List<Announcement>) {
-  val announcementText = AppConfig.redisClient?.get("announcementtext:$guildId")
-
+fun JDA.sendAnnouncements(guildId: String, channelId: String, text: String?, announcements: List<Announcement>) =
   announcements.forEach { announcement ->
     (getGuildById(guildId)?.getChannel(channelId) as? TextChannel)
       ?.send(
-        content = announcementText ?: "",
+        content = text ?: "",
         embeds = listOf(
           Embed(
             title = announcement.title,
@@ -117,12 +113,10 @@ suspend fun JDA.sendAnnouncements(guildId: String, channelId: String, announceme
         )
       )?.queue()
   }
-}
 
-fun startCron(jda: JDA): (() -> Unit)? {
+fun startCron(jda: JDA): () -> Unit {
   val coroutineScope = CoroutineScope(Dispatchers.IO)
   val reloadChannel = Channel<Unit>()
-  val redis = AppConfig.redisClient ?: return null
 
   coroutineScope.launch {
     while (isActive) {
@@ -130,22 +124,22 @@ fun startCron(jda: JDA): (() -> Unit)? {
         while (isActive) {
           runCatching {
             val announcements = getNewAnnouncements(AppConfig.CANVAS_COURSE_CODE)
-            redis.keys("announcementchannel:*")
-              .chunked(20) // mget in chunks
-              .forEach { chunk ->
-                redis.mget(*chunk.toTypedArray()).forEachIndexed { i, channelId ->
-                  val guildId = chunk[i].substringAfter(':')
-
-                  runCatching {
-                    jda.sendAnnouncements(guildId, channelId ?: return@runCatching, announcements)
-                  }.printException()
-                }
+            suspendTransaction {
+              Guild.all().forEach { guild ->
+                jda.sendAnnouncements(
+                  guildId = guild.discordId,
+                  channelId = guild.announcementChannel ?: return@forEach,
+                  text = guild.announcementText,
+                  announcements = announcements
+                )
               }
+            }
           }.printException()
 
           delay(30.minutes)
         }
       }
+
       reloadChannel.receiveCatching()
       job.cancel()
     }

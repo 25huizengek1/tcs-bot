@@ -19,16 +19,16 @@ import kotlinx.serialization.Serializable
 import net.dv8tion.jda.api.JDA
 import nl.bartoostveen.tcsbot.*
 import nl.bartoostveen.tcsbot.command.assignRole
+import nl.bartoostveen.tcsbot.database.getMemberByNonce
 import java.net.URI
 import java.security.interfaces.RSAPublicKey
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.io.encoding.Base64
 
-private const val SCOPE = "openid profile"
+private const val SCOPE = "openid profile email"
 private val REDIRECT_URI = "${AppConfig.HOSTNAME}/oauth/callback"
 
-private val redis get() = AppConfig.redisClient ?: internalServerError()
 private val nonceMap: MutableMap<String, ByteArray> = ConcurrentHashMap()
 
 private val jwksProvider =
@@ -42,7 +42,7 @@ private val base64 = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT_OPTI
 fun Route.authRouter(jda: JDA) = route("/oauth") {
   get("/redirect") {
     val nonce = queryParameter("nonce")
-    if (redis.exists("nonce:$nonce") == 0L) badRequest("Invalid nonce")
+    if (getMemberByNonce(nonce, eager = false) == null) badRequest("Invalid nonce")
 
     val codeVerifier = generateNonce(43)
     val codeChallenge = base64.encode(codeVerifier.sha256)
@@ -108,9 +108,9 @@ fun Route.authRouter(jda: JDA) = route("/oauth") {
         val familyName = jwt.string("family_name") ?: return@let null
         "$firstName $familyName"
       } ?: jwt.string("name") ?: badRequest("Invalid token")
-      val memberRef = redis.getDel("nonce:$nonce") ?: badRequest("Nonce expired")
+      val email = jwt.string("email") ?: badRequest("Invalid token")
 
-      if (!jda.assignRole(name, memberRef)) throw RuntimeException("JDA failed to assign role")
+      if (!jda.assignRole(name, email, nonce)) throw RuntimeException("JDA failed to assign role")
       call.respondHtml {
         head {
           title {

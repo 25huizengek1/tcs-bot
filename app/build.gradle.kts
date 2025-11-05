@@ -45,7 +45,12 @@ dependencies {
   implementation(libs.ktor.json)
 
   implementation(libs.logback)
-  implementation(libs.kreds)
+  implementation(libs.exposed.core)
+  implementation(libs.exposed.dao)
+  implementation(libs.exposed.jdbc)
+  implementation(libs.sqlite)
+  implementation(libs.postgres)
+  implementation(libs.hikaricp)
 
   implementation(libs.kotlinx.datetime)
   implementation(libs.flexmark.md)

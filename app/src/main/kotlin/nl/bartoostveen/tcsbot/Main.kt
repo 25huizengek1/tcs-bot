@@ -39,6 +39,8 @@ import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import nl.bartoostveen.tcsbot.command.announceCommands
 import nl.bartoostveen.tcsbot.command.modCommands
+import nl.bartoostveen.tcsbot.command.roleCommands
+import nl.bartoostveen.tcsbot.command.utilityCommands
 import nl.bartoostveen.tcsbot.command.verifyCommands
 import nl.bartoostveen.tcsbot.routing.authRouter
 import java.io.File
@@ -49,8 +51,6 @@ val json = Json {
   isLenient = true
   ignoreUnknownKeys = true
 }
-
-// TODO: migrate entire fucking thing to sqlc or smth
 
 fun main(args: Array<String>) {
   val envFile = File(args.firstOrNull() ?: ".env")
@@ -76,6 +76,8 @@ fun main(args: Array<String>) {
   +jda.updateCommands {
     jda.announceCommands()
     jda.modCommands()
+    jda.roleCommands()
+    jda.utilityCommands()
     jda.verifyCommands()
   }
 
