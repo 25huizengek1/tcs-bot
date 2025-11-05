@@ -81,6 +81,11 @@ fun main(args: Array<String>) {
     jda.verifyCommands()
   }
 
+  println("Starting Ktor server on ${AppConfig.HOST}:${AppConfig.PORT}")
+  println(
+    "Please note this server should always be behind a trusted reverse proxy, since this server assumes the X-Forwarded-For header is valid"
+  )
+
   embeddedServer(
     factory = Netty,
     host = AppConfig.HOST,
