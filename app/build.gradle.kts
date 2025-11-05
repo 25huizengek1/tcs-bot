@@ -51,6 +51,7 @@ dependencies {
   implementation(libs.sqlite)
   implementation(libs.postgres)
   implementation(libs.hikaricp)
+  implementation(libs.kreds)
 
   implementation(libs.kotlinx.datetime)
   implementation(libs.flexmark.md)

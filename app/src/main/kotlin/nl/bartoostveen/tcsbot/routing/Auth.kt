@@ -3,6 +3,7 @@ package nl.bartoostveen.tcsbot.routing
 import com.auth0.jwk.JwkProviderBuilder
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import io.github.crackthecodeabhi.kreds.args.SetOption
 import io.ktor.client.call.body
 import io.ktor.client.request.forms.submitForm
 import io.ktor.http.Parameters
@@ -22,14 +23,12 @@ import nl.bartoostveen.tcsbot.command.assignRole
 import nl.bartoostveen.tcsbot.database.getMemberByNonce
 import java.net.URI
 import java.security.interfaces.RSAPublicKey
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.io.encoding.Base64
+import kotlin.time.Duration.Companion.hours
 
 private const val SCOPE = "openid profile email"
 private val REDIRECT_URI = "${AppConfig.HOSTNAME}/oauth/callback"
-
-private val nonceMap: MutableMap<String, ByteArray> = ConcurrentHashMap()
 
 private val jwksProvider =
   JwkProviderBuilder(URI("${AppConfig.MICROSOFT_AUTH_ENDPOINT}/discovery/keys?appid=${AppConfig.MICROSOFT_CLIENT_ID}").toURL())
@@ -40,13 +39,21 @@ private val jwksProvider =
 private val base64 = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT_OPTIONAL)
 
 fun Route.authRouter(jda: JDA) = route("/oauth") {
+  val redis = AppConfig.redisClient ?: return@route
+
   get("/redirect") {
     val nonce = queryParameter("nonce")
     if (getMemberByNonce(nonce, eager = false) == null) badRequest("Invalid nonce")
 
     val codeVerifier = generateNonce(43)
     val codeChallenge = base64.encode(codeVerifier.sha256)
-    nonceMap[nonce] = codeVerifier
+    runCatching {
+      redis.set(
+        key = "nonce:$nonce",
+        value = codeVerifier.decodeToString(),
+        setOption = SetOption.Builder().exSeconds(1.hours.inWholeSeconds.toULong()).build()
+      )
+    }.printException().onFailure { internalServerError() }
 
     call.respondRedirect(
       URLBuilder("${AppConfig.MICROSOFT_AUTH_ENDPOINT}/oauth2/v2.0/authorize")
@@ -71,10 +78,9 @@ fun Route.authRouter(jda: JDA) = route("/oauth") {
 
     val code = queryParameter("code")
     val nonce = queryParameter("state")
-    val codeVerifier = nonceMap.getOrElse(nonce) {
-      badRequest("Invalid state")
-    }
-    nonceMap.remove(nonce)
+    val codeVerifier = runCatching {
+      redis.getDel("nonce:$nonce")
+    }.getOrNull() ?: badRequest("Invalid state")
 
     val token = AppConfig.httpClient.submitForm(
       url = "${AppConfig.MICROSOFT_AUTH_ENDPOINT}/oauth2/v2.0/token",
@@ -85,7 +91,7 @@ fun Route.authRouter(jda: JDA) = route("/oauth") {
         append("redirect_uri", REDIRECT_URI)
         append("grant_type", "authorization_code")
         append("code", code)
-        append("code_verifier", codeVerifier.decodeToString())
+        append("code_verifier", codeVerifier)
       }
     ).body<OpenIDConnectTokenResponse>()
 

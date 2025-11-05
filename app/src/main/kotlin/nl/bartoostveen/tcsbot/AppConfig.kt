@@ -1,5 +1,7 @@
 package nl.bartoostveen.tcsbot
 
+import io.github.crackthecodeabhi.kreds.connection.Endpoint
+import io.github.crackthecodeabhi.kreds.connection.newClient
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpRequestRetry
@@ -64,6 +66,7 @@ object AppConfig {
   val CANVAS_ACCESS_TOKEN by variable()
   val CANVAS_COURSE_CODE by variable(::emptyList, list(id))
   val CANVAS_BASE_URL by variable({ "https://canvas.utwente.nl" }, id)
+  val REDIS_CONNECTION_STRING by variable({ "localhost:6379" }, id)
   val DATABASE_CONNECTION_STRING by variable({ "jdbc:sqlite:db.sqlite" }, id)
   val DATABASE_USERNAME by variable({ "" }, id)
   val DATABASE_PASSWORD by variable({ "" }, id)
@@ -75,6 +78,11 @@ object AppConfig {
   val HOSTNAME by variable()
   val ENVIRONMENT by variable({ Environment.PRODUCTION }, enum<Environment>())
   val METRICS_PREFIX by variable({ "100." }, id)
+
+  val redisClient =
+    runCatching { newClient(Endpoint.from(REDIS_CONNECTION_STRING)) }
+      .printException()
+      .getOrNull()
 
   @OptIn(FlowPreview::class)
   val database = Database.connect(
