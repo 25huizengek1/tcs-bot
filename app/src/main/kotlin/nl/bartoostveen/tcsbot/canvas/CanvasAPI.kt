@@ -98,6 +98,8 @@ data class Announcement(
   @Serializable
   data class Author(
     @SerialName("display_name")
-    val displayName: String
+    val displayName: String,
+    @SerialName("avatar_image_url")
+    val avatarUrl: String
   )
 }

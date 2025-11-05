@@ -106,6 +106,7 @@ fun JDA.sendAnnouncements(guildId: String, channelId: String, text: String?, ann
           Embed(
             title = announcement.title,
             authorName = announcement.authorName,
+            authorIcon = announcement.author?.avatarUrl,
             timestamp = announcement.postedAt.toJavaInstant(),
             description = flexmarkdown.convert(announcement.message),
             url = announcement.url
