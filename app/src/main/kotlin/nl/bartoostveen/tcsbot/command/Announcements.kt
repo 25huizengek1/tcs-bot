@@ -137,7 +137,7 @@ fun startCron(jda: JDA): () -> Unit {
             }
           }.printException()
 
-          delay(30.minutes)
+          delay(1.minutes)
         }
       }
 
