@@ -115,7 +115,7 @@ suspend fun updateNickname(
   name: String,
   email: String? = null,
   course: String?
-): AuditableRestAction<Void?> {
+): Pair<CourseUser.Enrollment.Role?, AuditableRestAction<Void?>> {
   val name = name.take(min(name.length, 32))
 
   val highestRole = course?.let {
@@ -128,7 +128,7 @@ suspend fun updateNickname(
     }.printException().getOrNull()
   }
 
-  return member.modifyNickname(
+  return highestRole to member.modifyNickname(
     when (highestRole) {
       null, CourseUser.Enrollment.Role.Student -> name
       CourseUser.Enrollment.Role.TA -> "$name [TA]"
@@ -187,10 +187,11 @@ suspend fun JDA.assignRole(dbMember: Member): Boolean = runCatching {
         val teacherRole = dbGuild.teacherRole?.let { guild.getRoleById(it) }
         val member = guild.retrieveMemberById(dbMember.discordId).await() ?: error("Member left guild")
 
-        updateNickname(member, name, dbMember.email, dbGuild.primaryCourse?.canvasId).await()
+        val (canvasRole, action) = updateNickname(member, name, dbMember.email, dbGuild.primaryCourse?.canvasId)
+        action.await()
         delay(500L) // Because of the server-side race condition in Discord
         +guild.addRoleToMember(member, role)
-        teacherRole?.let {
+        if (canvasRole != null && canvasRole > CourseUser.Enrollment.Role.Student) teacherRole?.let {
           delay(500)
           +guild.addRoleToMember(member, it)
         }
