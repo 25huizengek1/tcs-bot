@@ -49,7 +49,7 @@ open class CanvasAPI(
     email: String? = null,
     course: String
   ): Result<CourseUser?> = runCatching {
-    httpClient.get("/api/v1/courses/$course/users") {
+    httpClient.get("/api/v1/courses/${course.removePrefix("course_")}/users") {
       parameter("include_inactive", "true")
       parameter("include[]", "enrollments")
       parameter("include[]", "email")
