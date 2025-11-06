@@ -74,20 +74,21 @@ suspend fun getNewAnnouncements(guild: Guild): List<Announcement> {
   return announcements
     .groupBy { it.contextCode }
     .flatMap { (contextCode, list) ->
-      val announcements = list.sortedBy { it.position }
+      val courseAnnouncements = list.sortedBy { it.position }
+
       runCatching {
         val course = guild.courses.first { it.canvasId == contextCode }
         val oldNewest = course.newest
-        val newest = announcements.last().position
+        val newest = courseAnnouncements.last().position
 
         if (oldNewest == newest) return@runCatching listOf()
 
         course.newest = newest
-        if (oldNewest == null) return@runCatching announcements
+        if (oldNewest == null) return@runCatching courseAnnouncements
 
-        announcements.subList(
-          announcements.binarySearch { (newest - oldNewest).toInt() } + 1,
-          announcements.size
+        courseAnnouncements.subList(
+          courseAnnouncements.indexOfFirst { it.position > oldNewest },
+          courseAnnouncements.size
         )
       }.getOrElse { listOf() }
     }
