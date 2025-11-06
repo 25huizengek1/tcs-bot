@@ -38,6 +38,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import nl.bartoostveen.tcsbot.command.announceCommands
+import nl.bartoostveen.tcsbot.command.courseCommands
 import nl.bartoostveen.tcsbot.command.modCommands
 import nl.bartoostveen.tcsbot.command.roleCommands
 import nl.bartoostveen.tcsbot.command.utilityCommands
@@ -75,6 +76,7 @@ fun main(args: Array<String>) {
 
   +jda.updateCommands {
     jda.announceCommands()
+    jda.courseCommands()
     jda.modCommands()
     jda.roleCommands()
     jda.utilityCommands()
@@ -112,7 +114,6 @@ object GlobalEventListener : ListenerAdapter() {
   override fun onReady(event: ReadyEvent) {
     println("[JDA] Bot ready")
     println("Operating as ${event.jda.selfUser.asTag}")
-    println("Watching Canvas course IDs -> ${AppConfig.CANVAS_COURSE_CODE}")
   }
 }
 

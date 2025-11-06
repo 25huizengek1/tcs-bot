@@ -45,9 +45,10 @@ class Member(id: EntityID<ULong>) : ULongEntity(id) {
   var email by Members.email
 }
 
-suspend fun getMember(discordId: String) = suspendTransaction {
+suspend fun getMember(discordId: String, fetchGuilds: Boolean = false) = suspendTransaction {
   Member
     .find { Members.discordId eq discordId }
+    .let { if (fetchGuilds) it.with(Member::guilds) else it }
     .firstOrNull()
 }
 

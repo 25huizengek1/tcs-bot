@@ -12,12 +12,11 @@ import dev.minn.jda.ktx.messages.MessageCreate
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.Role
+import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
 import nl.bartoostveen.tcsbot.adminPermissions
-import nl.bartoostveen.tcsbot.database.editRole
-import nl.bartoostveen.tcsbot.database.getRole
-import nl.bartoostveen.tcsbot.database.removeRole
+import nl.bartoostveen.tcsbot.database.*
 import nl.bartoostveen.tcsbot.printException
 import nl.bartoostveen.tcsbot.unaryPlus
 import java.awt.Color
@@ -41,6 +40,11 @@ fun JDA.roleCommands() {
     slash("rolemenu", "Show role menu here") {
       restrict(guild = true, adminPermissions)
       option<String>("menu_name", "The identifier of the menu")
+    }
+
+    slash("setteacherrole", "Sets the teacher role") {
+      restrict(guild = true, adminPermissions)
+      option<Role>("role", "The role", required = true)
     }
   }
 
@@ -119,4 +123,23 @@ fun JDA.roleCommands() {
     else +guild.addRoleToMember(member, role)
     +event.hook.editOriginal("Toggled role <@&$roleId>: ${dbRole.description}")
   }
+
+  onCommand("setteacherrole") { event ->
+    setRoleCommand(event) { verifiedRole = it }
+  }
+}
+
+suspend fun setRoleCommand(event: GenericCommandInteractionEvent, setRole: Guild.(String) -> Unit) {
+  val role = event.getOption<Role>("role")!!
+  +event.deferReply(true)
+
+  runCatching {
+    editGuild(event.guild!!.id) {
+      setRole(role.id)
+    }
+  }.printException().onFailure {
+    return +event.hook.editOriginal("An error occurred")
+  }
+
+  +event.hook.editOriginal(":white_check_mark:")
 }

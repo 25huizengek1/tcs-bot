@@ -11,11 +11,7 @@ import io.ktor.client.plugins.logging.Logging
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.DEFAULT_CONCURRENCY
-import nl.bartoostveen.tcsbot.database.Courses
-import nl.bartoostveen.tcsbot.database.GuildMembers
-import nl.bartoostveen.tcsbot.database.GuildRoles
-import nl.bartoostveen.tcsbot.database.Guilds
-import nl.bartoostveen.tcsbot.database.Members
+import nl.bartoostveen.tcsbot.database.*
 import org.jetbrains.exposed.v1.core.DatabaseConfig
 import org.jetbrains.exposed.v1.core.StdOutSqlLogger
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -64,7 +60,6 @@ object AppConfig {
 
   val DISCORD_ACCESS_TOKEN by variable()
   val CANVAS_ACCESS_TOKEN by variable()
-  val CANVAS_COURSE_CODE by variable(::emptyList, list(id))
   val CANVAS_BASE_URL by variable({ "https://canvas.utwente.nl" }, id)
   val REDIS_CONNECTION_STRING by variable({ "localhost:6379" }, id)
   val DATABASE_CONNECTION_STRING by variable({ "jdbc:sqlite:db.sqlite" }, id)
@@ -99,8 +94,8 @@ object AppConfig {
     transaction(db = it) {
       addLogger(StdOutSqlLogger)
 
-      // TODO: migration
-      SchemaUtils.create(
+      @Suppress("deprecation", "RedundantSuppression") // why
+      SchemaUtils.createMissingTablesAndColumns(
         Courses,
         Guilds,
         Members,

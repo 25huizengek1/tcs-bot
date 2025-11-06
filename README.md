@@ -16,9 +16,11 @@ $ nix build .#
 
 - `DISCORD_ACCESS_TOKEN`: Discord Bot token (**required**)
 - `CANVAS_ACCESS_TOKEN`: Canvas access token (**required**)
-- `CANVAS_COURSE_CODE`: List of Canvas course codes (without the `course_`) (**required**)
 - `CANVAS_BASE_URL`: (default: `https://canvas.utwente.nl`)
-- `DATABASE_CONNECTION_STRING`: connection string for the SQlite/PostgreSQL database (default: `jdbc:sqlite:///db.sqlite`)
+- `DATABASE_CONNECTION_STRING`: connection string for the SQlite/PostgreSQL database (default: `jdbc:sqlite:db.sqlite`)
+- `DATABASE_USERNAME`: database username (default: `null`)
+- `DATABASE_PASSWORD`: database username (default: `null`)
+- `REDIS_CONNECTION_STRING`: connection string for the Redis/Valkey cache (default: `localhost:6379`)
 - `MICROSOFT_CLIENT_ID`: client id used for Microsoft authentication (**required**)
 - `MICROSOFT_CLIENT_SECRET`: client secret used for Microsoft authentication (**required**)
 - `MICROSOFT_AUTH_ENDPOINT`: authentication endpoint used for Microsoft authentication (**required**)

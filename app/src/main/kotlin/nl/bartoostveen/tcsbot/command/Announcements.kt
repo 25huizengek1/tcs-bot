@@ -16,12 +16,16 @@ import kotlinx.coroutines.channels.Channel
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
-import nl.bartoostveen.tcsbot.*
+import nl.bartoostveen.tcsbot.adminPermissions
 import nl.bartoostveen.tcsbot.canvas.Announcement
 import nl.bartoostveen.tcsbot.canvas.getNewAnnouncements
 import nl.bartoostveen.tcsbot.database.Guild
 import nl.bartoostveen.tcsbot.database.editGuild
 import nl.bartoostveen.tcsbot.database.getGuild
+import nl.bartoostveen.tcsbot.printException
+import nl.bartoostveen.tcsbot.suspendTransaction
+import nl.bartoostveen.tcsbot.unaryPlus
+import org.jetbrains.exposed.v1.dao.with
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
@@ -124,20 +128,24 @@ fun startCron(jda: JDA): () -> Unit {
       val job = launch {
         while (isActive) {
           runCatching {
-            val announcements = getNewAnnouncements(AppConfig.CANVAS_COURSE_CODE)
             suspendTransaction {
-              Guild.all().forEach { guild ->
-                jda.sendAnnouncements(
-                  guildId = guild.discordId,
-                  channelId = guild.announcementChannel ?: return@forEach,
-                  text = guild.announcementText,
-                  announcements = announcements
-                )
+              Guild.all().with(Guild::courses).forEach { guild ->
+                val channel = guild.announcementChannel ?: return@forEach
+                runCatching {
+                  // wrapped inside another transaction so if one guild fails we dont bail out
+                  val announcements = suspendTransaction { getNewAnnouncements(guild) }
+                  jda.sendAnnouncements(
+                    guildId = guild.discordId,
+                    channelId = channel,
+                    text = guild.announcementText,
+                    announcements = announcements
+                  )
+                }.printException()
               }
             }
-          }.printException()
 
-          delay(1.minutes)
+            delay(1.minutes)
+          }.printException()
         }
       }
 

@@ -16,8 +16,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import nl.bartoostveen.tcsbot.AppConfig
 import nl.bartoostveen.tcsbot.SerializableInstant
-import nl.bartoostveen.tcsbot.database.getNewest
-import nl.bartoostveen.tcsbot.database.setNewest
+import nl.bartoostveen.tcsbot.database.Guild
 import nl.bartoostveen.tcsbot.printException
 import kotlin.time.ExperimentalTime
 
@@ -39,7 +38,8 @@ open class CanvasAPI(
 
   suspend fun getAnnouncements(course: List<String>): Result<List<Announcement>> = runCatching {
     httpClient.get("/api/v1/announcements") {
-      course.forEach { parameter("context_codes[]", "course_$it") }
+      course.forEach { parameter("context_codes[]", if (it.startsWith("course_")) it else "course_$it") }
+      parameter("active_only", "true")
     }.body()
   }
 
@@ -62,24 +62,27 @@ open class CanvasAPI(
 /**
  * Returns sorted list of all new announcements, unless Redis fails, then returns nothing
  * If Redis is not configured, returns all announcements!
+ *
+ * Should run in transaction!
  */
 @OptIn(ExperimentalTime::class)
-suspend fun getNewAnnouncements(course: List<String>): List<Announcement> {
-  val announcements = CanvasAPI.getAnnouncements(course)
+suspend fun getNewAnnouncements(guild: Guild): List<Announcement> {
+  val announcements = CanvasAPI.getAnnouncements(guild.courses.map { it.canvasId })
     .printException()
     .getOrElse { return listOf() }
 
   return announcements
     .groupBy { it.contextCode }
     .flatMap { (contextCode, list) ->
-      // non-empty list
       val announcements = list.sortedBy { it.position }
       runCatching {
-        val oldNewest = getNewest(contextCode)
+        val course = guild.courses.first { it.canvasId == contextCode }
+        val oldNewest = course.newest
         val newest = announcements.last().position
+
         if (oldNewest == newest) return@runCatching listOf()
 
-        runCatching { setNewest(contextCode, newest) } // don't bail if setting new fails
+        course.newest = newest
         if (oldNewest == null) return@runCatching announcements
 
         announcements.subList(

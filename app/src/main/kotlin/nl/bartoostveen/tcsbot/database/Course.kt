@@ -1,16 +1,27 @@
 package nl.bartoostveen.tcsbot.database
 
 import nl.bartoostveen.tcsbot.suspendTransaction
+import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.core.dao.id.ULongIdTable
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.dao.ULongEntity
 import org.jetbrains.exposed.v1.dao.ULongEntityClass
-import org.jetbrains.exposed.v1.jdbc.upsert
 
 object Courses : ULongIdTable("courses") {
-  var canvasId = varchar("canvas_id", 20).uniqueIndex()
-  var newest = long("newest")
+  val canvasId = varchar("canvas_id", 20).uniqueIndex()
+  val newest = long("newest").nullable()
+  val primary = bool("is_primary").default(false)
+  val guild = reference(
+    name = "guild_id",
+    foreign = Guilds,
+    onDelete = ReferenceOption.CASCADE,
+    onUpdate = ReferenceOption.CASCADE
+  )
+
+  init {
+    uniqueIndex(canvasId, guild)
+  }
 }
 
 class Course(id: EntityID<ULong>) : ULongEntity(id) {
@@ -18,18 +29,12 @@ class Course(id: EntityID<ULong>) : ULongEntity(id) {
 
   var canvasId by Courses.canvasId
   var newest by Courses.newest
+  var primary by Courses.primary
+  var guild by Guild referencedOn Courses.guild
 }
 
-suspend fun getNewest(courseId: String) = suspendTransaction {
+suspend fun getCourse(canvasId: String) = suspendTransaction {
   Course
-    .find { Courses.canvasId eq courseId }
+    .find { Courses.canvasId eq canvasId }
     .firstOrNull()
-    ?.newest
-}
-
-suspend fun setNewest(courseId: String, newest: Long) = suspendTransaction {
-  Courses.upsert {
-    it[this.canvasId] = courseId
-    it[this.newest] = newest
-  }
 }

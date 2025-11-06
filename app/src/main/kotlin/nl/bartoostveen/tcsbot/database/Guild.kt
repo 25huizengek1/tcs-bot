@@ -8,8 +8,12 @@ import org.jetbrains.exposed.v1.core.dao.id.ULongIdTable
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.dao.ULongEntity
 import org.jetbrains.exposed.v1.dao.ULongEntityClass
+import org.jetbrains.exposed.v1.dao.with
 import org.jetbrains.exposed.v1.jdbc.delete
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.upsert
 
 object Guilds : ULongIdTable("guilds") {
@@ -17,6 +21,7 @@ object Guilds : ULongIdTable("guilds") {
   val announcementChannel = varchar("announcement_channel_id", 20).nullable()
   val announcementText = text("announcement_text").nullable()
   val verifiedRole = varchar("verified_role_id", 20).nullable()
+  val teacherRole = varchar("teacher_role_id", 20).nullable()
 }
 
 class Guild(id: EntityID<ULong>) : ULongEntity(id) {
@@ -26,8 +31,12 @@ class Guild(id: EntityID<ULong>) : ULongEntity(id) {
   var announcementChannel by Guilds.announcementChannel
   var announcementText by Guilds.announcementText
   var verifiedRole by Guilds.verifiedRole
+  var teacherRole by Guilds.teacherRole
   val members by Member via GuildMembers
+  val courses by Course referrersOn Courses.guild
   val roles by GuildRole referrersOn GuildRoles.guild
+
+  val primaryCourse: Course? get() = courses.firstOrNull { it.primary } ?: courses.firstOrNull()
 }
 
 object GuildRoles : ULongIdTable("guild_roles") {
@@ -40,6 +49,10 @@ object GuildRoles : ULongIdTable("guild_roles") {
   val discordId = varchar("discord_id", 20).index()
   val description = text("description").nullable()
   val menuName = varchar("menu_name", 64).index()
+
+  init {
+    uniqueIndex(guild, discordId)
+  }
 }
 
 class GuildRole(id: EntityID<ULong>) : ULongEntity(id) {
@@ -51,9 +64,10 @@ class GuildRole(id: EntityID<ULong>) : ULongEntity(id) {
   var menuName by GuildRoles.menuName
 }
 
-suspend fun getGuild(discordId: String) = suspendTransaction {
+suspend fun getGuild(discordId: String, fetchCourses: Boolean = false) = suspendTransaction {
   Guild
     .find { Guilds.discordId eq discordId }
+    .let { if (fetchCourses) it.with(Guild::courses) else it }
     .firstOrNull()
 }
 
@@ -90,7 +104,7 @@ suspend fun editRole(
 ) = suspendTransaction {
   val guild = getGuild(guildId) ?: error("Guild does not exist")
 
-  GuildRoles.upsert(Guilds.id) {
+  GuildRoles.upsert(GuildRoles.discordId) {
     it[this.guild] = guild.id
     it[this.discordId] = roleId
     it[this.description] = description
@@ -103,5 +117,34 @@ suspend fun removeRole(guildId: String, roleId: String, menuName: String) = susp
     (Guilds.discordId eq guildId) and
       (GuildRoles.discordId eq roleId) and
       (GuildRoles.menuName eq menuName)
+  }
+}
+
+// everything should change when calling this, which is why this does not take an "operation"
+suspend fun addCourse(
+  guildId: String,
+  courseId: String,
+  primary: Boolean
+) = suspendTransaction {
+  val guild = getGuild(guildId, fetchCourses = primary) ?: error("Guild does not exist")
+
+  val courseRow = Courses.upsert(Courses.guild, Courses.canvasId) {
+    it[this.guild] = guild.id
+    it[this.canvasId] = if (courseId.startsWith("course_")) courseId else "course_$courseId"
+  }
+  if (primary) {
+    commit()
+
+    val id = courseRow[Courses.id]
+    guild.courses.forUpdate().forEach {
+      it.primary = it.id == id
+    }
+  }
+}
+
+suspend fun removeCourse(guildId: String, courseId: String) = suspendTransaction {
+  (Courses innerJoin Guilds).delete(Courses) {
+    (Guilds.discordId eq guildId) and
+      (Courses.canvasId eq courseId)
   }
 }
