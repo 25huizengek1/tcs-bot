@@ -42,6 +42,21 @@ open class CanvasAPI(
       course.forEach { parameter("context_codes[]", "course_$it") }
     }.body()
   }
+
+  // Best effort guess, I guess
+  suspend fun searchUser(
+    name: String,
+    email: String? = null,
+    course: String
+  ): Result<CourseUser?> = runCatching {
+    httpClient.get("/api/v1/courses/$course/users") {
+      parameter("include_inactive", "true")
+      parameter("include[]", "enrollments")
+      parameter("include[]", "email")
+      parameter("search_term", name)
+    }.body<List<CourseUser>>()
+      .firstOrNull { it.email == email || it.name == name }
+  }
 }
 
 /**
@@ -102,4 +117,28 @@ data class Announcement(
     @SerialName("avatar_image_url")
     val avatarUrl: String
   )
+}
+
+@Serializable
+data class CourseUser(
+  val enrollments: List<Enrollment> = listOf(),
+  val name: String,
+  val email: String? = null
+) {
+  @Serializable
+  data class Enrollment(
+    val role: Role
+  ) {
+    @Serializable
+    enum class Role {
+      @SerialName("StudentEnrollment")
+      Student,
+
+      @SerialName("TaEnrollment")
+      TA,
+
+      @SerialName("TeacherEnrollment")
+      Teacher
+    }
+  }
 }

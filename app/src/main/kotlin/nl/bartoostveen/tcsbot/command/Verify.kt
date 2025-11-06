@@ -3,6 +3,7 @@ package nl.bartoostveen.tcsbot.command
 import dev.minn.jda.ktx.coroutines.await
 import dev.minn.jda.ktx.events.onButton
 import dev.minn.jda.ktx.events.onCommand
+import dev.minn.jda.ktx.interactions.commands.choice
 import dev.minn.jda.ktx.interactions.commands.option
 import dev.minn.jda.ktx.interactions.commands.restrict
 import dev.minn.jda.ktx.interactions.commands.slash
@@ -18,12 +19,10 @@ import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
-import nl.bartoostveen.tcsbot.AppConfig
-import nl.bartoostveen.tcsbot.adminPermissions
+import nl.bartoostveen.tcsbot.*
+import nl.bartoostveen.tcsbot.canvas.CanvasAPI
+import nl.bartoostveen.tcsbot.canvas.CourseUser
 import nl.bartoostveen.tcsbot.database.*
-import nl.bartoostveen.tcsbot.printException
-import nl.bartoostveen.tcsbot.suspendTransaction
-import nl.bartoostveen.tcsbot.unaryPlus
 import java.awt.Color
 import kotlin.math.min
 import kotlin.time.Clock
@@ -41,6 +40,17 @@ fun JDA.verifyCommands() {
       restrict(guild = true, adminPermissions)
 
       option<Role>("role", "The role", required = true)
+    }
+
+    slash("reloadnickname", "Reload user nickname") {
+      restrict(guild = true, adminPermissions)
+
+      option<net.dv8tion.jda.api.entities.Member>("member", "The member to reload", required = true)
+      option<String>("course", "The course to reference roles from", required = true) {
+        AppConfig.CANVAS_COURSE_CODE.forEach { code ->
+          choice(code, code)
+        }
+      }
     }
   }
 
@@ -103,6 +113,45 @@ fun JDA.verifyCommands() {
 
     +event.hook.editOriginal(":white_check_mark:")
   }
+
+  onCommand("reloadnickname") { event ->
+    +event.deferReply(true)
+    val member = event.getOption<net.dv8tion.jda.api.entities.Member>("member")!!
+    val course = event.getOption<String>("course")!!
+    val (name, email) = getMember(member.id).let {
+      if (it?.name != null && it.email != null) it.name!! to it.email
+      else null
+    } ?: return@onCommand +event.hook.editOriginal("User not verified yet!")
+
+    +event.hook.editOriginal(
+      if (updateNickname(member, name, email, course)) ":white_check_mark:"
+      else "Cannot find user on Canvas!"
+    )
+  }
+}
+
+suspend fun updateNickname(
+  member: net.dv8tion.jda.api.entities.Member,
+  name: String,
+  email: String? = null,
+  course: String = AppConfig.CANVAS_COURSE_CODE.first()
+): Boolean {
+  val name = name.take(min(name.length, 32))
+
+  val highestRole = CanvasAPI
+    .searchUser(name, email, course)
+    .getOrElse { return false }
+    ?.enrollments?.maxOf { it.role }
+
+  +member.modifyNickname(
+    when (highestRole) {
+      null, CourseUser.Enrollment.Role.Student -> name
+      CourseUser.Enrollment.Role.TA -> "$name [TA]"
+      CourseUser.Enrollment.Role.Teacher -> "$name [Teacher]"
+    }
+  )
+
+  return true
 }
 
 suspend fun JDA.assignRole(
@@ -124,6 +173,7 @@ suspend fun JDA.assignRole(name: String, email: String, dbMember: Member): Boole
       this.authNonce = null
     }
   }
+
   runCatching {
     +retrieveUserById(dbMember.discordId).await().openPrivateChannel().await().send(
       embeds = listOf(
@@ -138,6 +188,7 @@ suspend fun JDA.assignRole(name: String, email: String, dbMember: Member): Boole
       )
     )
   }
+
   return assignRole(dbMember)
 }
 
@@ -152,7 +203,7 @@ suspend fun JDA.assignRole(dbMember: Member): Boolean = runCatching {
         val role = dbGuild.verifiedRole?.let { guild.getRoleById(it) } ?: error("Role does not exist")
         val member = guild.retrieveMemberById(dbMember.discordId).await() ?: error("Member left guild")
 
-        +member.modifyNickname(name)
+        updateNickname(member, name, dbMember.email)
         +guild.addRoleToMember(member, role)
       }.printException().isSuccess
     }.any { it }
