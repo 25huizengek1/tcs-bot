@@ -125,7 +125,7 @@ fun JDA.roleCommands() {
   }
 
   onCommand("setteacherrole") { event ->
-    setRoleCommand(event) { verifiedRole = it }
+    setRoleCommand(event) { teacherRole = it }
   }
 }
 
