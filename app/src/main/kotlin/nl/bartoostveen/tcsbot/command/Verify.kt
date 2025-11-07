@@ -117,7 +117,7 @@ fun JDA.verifyCommands() {
   }
 
   onCommand("changeuserdata") { event ->
-    event.deferReply(true)
+    +event.deferReply(true)
 
     if (event.member?.id != AppConfig.DISCORD_DEPLOYER_ID)
       return@onCommand +event.hook.editOriginal("You are not the deployer of this bot!")
