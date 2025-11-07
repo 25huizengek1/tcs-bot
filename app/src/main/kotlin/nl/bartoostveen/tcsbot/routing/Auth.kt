@@ -132,7 +132,7 @@ fun Route.authRouter(jda: JDA) = route("/oauth") {
           }
         }
       }
-    }.printException().getOrElse {
+    }.printException().onFailure {
       internalServerError("Cannot assign role, try again later")
     }
   }

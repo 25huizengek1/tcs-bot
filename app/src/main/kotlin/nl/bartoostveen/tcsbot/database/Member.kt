@@ -30,7 +30,7 @@ object GuildMembers : Table("guild_members") {
 
 object Members : ULongIdTable("members") {
   val discordId = varchar("discord_id", 20).uniqueIndex()
-  val authNonce = varchar("auth_nonce", 16).nullable()
+  val authNonce = varchar("auth_nonce", 16).nullable().uniqueIndex()
   val name = varchar("name", 32).nullable()
   val email = text("email").nullable().uniqueIndex()
 }

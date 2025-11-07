@@ -115,13 +115,24 @@ object GlobalEventListener : ListenerAdapter() {
 private fun Application.statusPages() = install(StatusPages) {
   exception<Throwable> { call, cause ->
     when (cause) {
-      is HttpResponseException -> call.respondText(text = cause.body, status = cause.code)
-      is NotFoundException ->
-        call.respondText(
-          text = "404: ${call.request.path()} not found", status = HttpStatusCode.NotFound
-        )
+      is HttpResponseException -> call.respondText(
+        text = "${cause.code}: ${cause.body}",
+        status = cause.code
+      )
 
-      else -> call.respondText(text = "500: $cause", status = HttpStatusCode.InternalServerError)
+      is NotFoundException -> call.respondText(
+        text = "404: ${call.request.path()} not found",
+        status = HttpStatusCode.NotFound
+      )
+
+      else -> {
+        call.respondText(
+          text = if (AppConfig.ENVIRONMENT == AppConfig.Environment.PRODUCTION) "500: Internal Server Error"
+            else "500: $cause",
+          status = HttpStatusCode.InternalServerError
+        )
+        cause.printStackTrace()
+      }
     }
   }
 }
