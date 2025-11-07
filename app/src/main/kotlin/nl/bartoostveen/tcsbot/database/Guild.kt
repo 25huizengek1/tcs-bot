@@ -101,7 +101,7 @@ suspend fun editRole(
 ) = suspendTransaction {
   val guild = getGuild(guildId) ?: error("Guild does not exist")
 
-  GuildRoles.upsert(GuildRoles.discordId) {
+  GuildRoles.upsert(GuildRoles.discordId, GuildRoles.guild) {
     it[this.guild] = guild.id
     it[this.discordId] = roleId
     it[this.description] = description
