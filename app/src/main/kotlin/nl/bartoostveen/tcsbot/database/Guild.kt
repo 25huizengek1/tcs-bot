@@ -116,32 +116,3 @@ suspend fun removeRole(guildId: String, roleId: String, menuName: String) = susp
       (GuildRoles.menuName eq menuName)
   }
 }
-
-// everything should change when calling this, which is why this does not take an "operation"
-suspend fun addCourse(
-  guildId: String,
-  courseId: String,
-  primary: Boolean
-) = suspendTransaction {
-  val guild = getGuild(guildId, fetchCourses = primary) ?: error("Guild does not exist")
-
-  val courseRow = Courses.upsert(Courses.guild, Courses.canvasId) {
-    it[this.guild] = guild.id
-    it[this.canvasId] = if (courseId.startsWith("course_")) courseId else "course_$courseId"
-  }
-  if (primary) {
-    commit()
-
-    val id = courseRow[Courses.id]
-    guild.courses.forUpdate().forEach {
-      it.primary = it.id == id
-    }
-  }
-}
-
-suspend fun removeCourse(guildId: String, courseId: String) = suspendTransaction {
-  (Courses innerJoin Guilds).delete(Courses) {
-    (Guilds.discordId eq guildId) and
-      (Courses.canvasId eq courseId)
-  }
-}

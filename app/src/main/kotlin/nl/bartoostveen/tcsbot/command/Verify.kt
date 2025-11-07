@@ -154,14 +154,15 @@ suspend fun updateNickname(
   member: net.dv8tion.jda.api.entities.Member,
   name: String,
   email: String? = null,
-  course: String?
+  course: String?,
+  proxy: String?
 ): Pair<CourseUser.Enrollment.Role?, AuditableRestAction<Void?>> {
   val name = name.take(min(name.length, 32))
 
   val highestRole = course?.let {
     runCatching {
       CanvasAPI
-        .searchUser(name, email, course)
+        .searchUser(name, email, course, proxy)
         .getOrNull()
         ?.enrollments
         ?.maxOf { it.role }
@@ -225,7 +226,13 @@ suspend fun JDA.assignRole(dbMember: Member): Boolean = runCatching {
         val teacherRole = dbGuild.teacherRole?.let { guild.getRoleById(it) }
         val member = guild.retrieveMemberById(dbMember.discordId).await() ?: error("Member left guild")
 
-        val (canvasRole, action) = updateNickname(member, name, dbMember.email, dbGuild.primaryCourse?.canvasId)
+        val (canvasRole, action) = updateNickname(
+          member = member,
+          name = name,
+          email = dbMember.email,
+          course = dbGuild.primaryCourse?.canvasId,
+          proxy = dbGuild.primaryCourse?.proxyUrl
+        )
         action.await()
         delay(500L) // Because of the server-side race condition in Discord
         +guild.addRoleToMember(member, role)

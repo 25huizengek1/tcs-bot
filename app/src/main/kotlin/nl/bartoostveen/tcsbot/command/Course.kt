@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
 import nl.bartoostveen.tcsbot.adminPermissions
 import nl.bartoostveen.tcsbot.database.addCourse
+import nl.bartoostveen.tcsbot.database.editCourse
 import nl.bartoostveen.tcsbot.database.getGuild
 import nl.bartoostveen.tcsbot.database.removeCourse
 import nl.bartoostveen.tcsbot.printException
@@ -32,6 +33,13 @@ fun JDA.courseCommands() {
 
     slash("listcourses", "List all associated courses") {
       restrict(guild = true, adminPermissions)
+    }
+
+    slash("setcourseproxyurl", "Use a proxy for a specific course") {
+      restrict(guild = true, adminPermissions)
+
+      option<String>("course", "The course to set the proxy url of", required = true)
+      option<String>("proxy", "The proxy base url", required = true)
     }
   }
 
@@ -74,5 +82,25 @@ fun JDA.courseCommands() {
     }.printException().onFailure {
       +event.hook.editOriginal("Failed to load courses for this guild")
     }
+  }
+
+  onCommand("setcourseproxyurl") { event ->
+    +event.deferReply(true)
+
+    val course = event.getOption<String>("course")!!
+    val proxy = event.getOption<String>("proxy")!!
+      .takeUnless { it.equals("null", ignoreCase = true) }
+
+    val guild = event.guild ?: return@onCommand
+    val success = runCatching {
+      editCourse(course, guild.id) {
+        this.proxyUrl = proxy
+      }
+    }.printException().getOrDefault(false)
+
+    +event.hook.editOriginal(
+      if (success) ":white_check_mark:"
+      else "Course not found for ${guild.name}!"
+    )
   }
 }

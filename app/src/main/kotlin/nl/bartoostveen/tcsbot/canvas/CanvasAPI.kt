@@ -10,6 +10,7 @@ import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.http.HttpMessageBuilder
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -32,14 +33,17 @@ open class CanvasAPI(
     install(ContentNegotiation) { json(json) }
     defaultRequest {
       url(baseUrl)
-      header("Authorization", "Bearer $accessToken")
     }
   }
 
-  suspend fun getAnnouncements(course: List<String>): Result<List<Announcement>> = runCatching {
-    httpClient.get("/api/v1/announcements") {
+  suspend fun getAnnouncements(
+    course: List<String>,
+    proxy: String?
+  ): Result<List<Announcement>> = runCatching {
+    httpClient.get("${proxy.orEmpty()}/api/v1/announcements") {
       course.forEach { parameter("context_codes[]", if (it.startsWith("course_")) it else "course_$it") }
       parameter("active_only", "true")
+      if (proxy == null) token()
     }.body()
   }
 
@@ -47,15 +51,21 @@ open class CanvasAPI(
   suspend fun searchUser(
     name: String,
     email: String? = null,
-    course: String
+    course: String,
+    proxy: String?
   ): Result<CourseUser?> = runCatching {
-    httpClient.get("/api/v1/courses/${course.removePrefix("course_")}/users") {
+    httpClient.get("${proxy.orEmpty()}/api/v1/courses/${course.removePrefix("course_")}/users") {
       parameter("include_inactive", "true")
       parameter("include[]", "enrollments")
       parameter("include[]", "email")
       parameter("search_term", name)
+      if (proxy == null) token()
     }.body<List<CourseUser>>()
       .firstOrNull { it.email == email || it.name == name }
+  }
+
+  private fun HttpMessageBuilder.token() {
+    header("Authorization", "Bearer $accessToken")
   }
 }
 
@@ -67,9 +77,13 @@ open class CanvasAPI(
  */
 @OptIn(ExperimentalTime::class)
 suspend fun getNewAnnouncements(guild: Guild): List<Announcement> {
-  val announcements = CanvasAPI.getAnnouncements(guild.courses.map { it.canvasId })
-    .printException()
-    .getOrElse { return listOf() }
+  val announcements = guild.courses
+    .groupBy { it.proxyUrl }
+    .flatMap { (proxy, courses) ->
+      CanvasAPI.getAnnouncements(courses.map { it.canvasId }, proxy)
+        .printException()
+        .getOrElse { listOf() }
+    }
 
   return announcements
     .groupBy { it.contextCode }
