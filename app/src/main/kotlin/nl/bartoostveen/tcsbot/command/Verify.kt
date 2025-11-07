@@ -155,9 +155,7 @@ suspend fun JDA.assignRole(name: String, email: String, dbMember: Member): Boole
       this.email = email
       this.authNonce = null
     }
-  }
 
-  runCatching {
     +retrieveUserById(dbMember.discordId).await().openPrivateChannel().await().send(
       embeds = listOf(
         Embed(
@@ -170,7 +168,7 @@ suspend fun JDA.assignRole(name: String, email: String, dbMember: Member): Boole
         )
       )
     )
-  }
+  }.printException().onFailure { return false }
 
   return assignRole(dbMember)
 }

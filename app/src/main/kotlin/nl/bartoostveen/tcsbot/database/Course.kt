@@ -9,7 +9,7 @@ import org.jetbrains.exposed.v1.dao.ULongEntity
 import org.jetbrains.exposed.v1.dao.ULongEntityClass
 
 object Courses : ULongIdTable("courses") {
-  val canvasId = varchar("canvas_id", 20).uniqueIndex()
+  val canvasId = varchar("canvas_id", 20)
   val newest = long("newest").nullable()
   val primary = bool("is_primary").default(false)
   val guild = reference(
