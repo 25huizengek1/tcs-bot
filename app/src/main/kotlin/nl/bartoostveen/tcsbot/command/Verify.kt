@@ -48,6 +48,13 @@ fun JDA.verifyCommands() {
 
       option<net.dv8tion.jda.api.entities.Member>("member", "The member to reload", required = true)
     }
+
+    slash("changeuserdata", "Manually verify a member / edit someones data") {
+      restrict(guild = true) // restrict only to deployer's Discord ID manually
+      option<net.dv8tion.jda.api.entities.Member>("member", "The member to edit", required = true)
+      option<String>("name", "Must be non-null if email is non-null")
+      option<String>("email", "Must be non-null if name is non-null")
+    }
   }
 
   onCommand("verify") { event ->
@@ -107,6 +114,39 @@ fun JDA.verifyCommands() {
 
     assignRole(dbMember)
     +event.hook.editOriginal(":white_check_mark:")
+  }
+
+  onCommand("changeuserdata") { event ->
+    event.deferReply(true)
+
+    if (event.member?.id != AppConfig.DISCORD_DEPLOYER_ID)
+      return@onCommand +event.hook.editOriginal("You are not the deployer of this bot!")
+
+    val member = event.getOption<net.dv8tion.jda.api.entities.Member>("member")!!
+    val name = event.getOption<String>("name")
+      ?.takeUnless { it.equals("null", ignoreCase = true) }
+      ?.takeIf { it.isNotBlank() }
+    val email = event.getOption<String>("email")
+      ?.takeUnless { it.equals("null", ignoreCase = true) }
+      ?.takeIf { it.isNotBlank() }
+
+    editMember(member.id, event.guild!!.id) {
+      when {
+        name == null && email == null -> {
+          this.name = null
+          this.email = null
+        }
+
+        name != null && email != null -> {
+          this.authNonce = null
+          this.name = name
+          this.email = email
+        }
+
+        else -> return@editMember +event.hook.editOriginal("Cannot update member if name and email are not both null or non-null!")
+      }
+      +event.hook.editOriginal("Updated member ${member.asMention} :white_check_mark:")
+    }
   }
 }
 

@@ -73,6 +73,7 @@ object AppConfig {
   val HOSTNAME by variable()
   val ENVIRONMENT by variable({ Environment.PRODUCTION }, enum<Environment>())
   val METRICS_PREFIX by variable({ "100." }, id)
+  val DISCORD_DEPLOYER_ID by variable({ "592692593901699072" }, id)
 
   val redisClient =
     runCatching { newClient(Endpoint.from(REDIS_CONNECTION_STRING)) }
