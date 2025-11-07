@@ -1,10 +1,8 @@
 package nl.bartoostveen.tcsbot.database
 
-import nl.bartoostveen.tcsbot.suspendTransaction
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.core.dao.id.ULongIdTable
-import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.dao.ULongEntity
 import org.jetbrains.exposed.v1.dao.ULongEntityClass
 
@@ -31,10 +29,4 @@ class Course(id: EntityID<ULong>) : ULongEntity(id) {
   var newest by Courses.newest
   var primary by Courses.primary
   var guild by Guild referencedOn Courses.guild
-}
-
-suspend fun getCourse(canvasId: String) = suspendTransaction {
-  Course
-    .find { Courses.canvasId eq canvasId }
-    .firstOrNull()
 }

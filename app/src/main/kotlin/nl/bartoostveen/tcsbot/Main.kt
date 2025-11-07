@@ -37,12 +37,7 @@ import net.dv8tion.jda.api.events.session.ReadyEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
-import nl.bartoostveen.tcsbot.command.announceCommands
-import nl.bartoostveen.tcsbot.command.courseCommands
-import nl.bartoostveen.tcsbot.command.modCommands
-import nl.bartoostveen.tcsbot.command.roleCommands
-import nl.bartoostveen.tcsbot.command.utilityCommands
-import nl.bartoostveen.tcsbot.command.verifyCommands
+import nl.bartoostveen.tcsbot.command.*
 import nl.bartoostveen.tcsbot.routing.authRouter
 import java.io.File
 

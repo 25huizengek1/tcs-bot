@@ -80,8 +80,7 @@ fun JDA.roleCommands() {
     +event.hook.editOriginal(":white_check_mark:")
 
     val guild = event.guild!!
-    val roles = nl.bartoostveen.tcsbot.database.getRoles(guild.id, menuName)
-      .associateBy { guild.getRoleById(it.discordId) }
+    val roles = getRoles(guild.id, menuName).associateBy { guild.getRoleById(it.discordId) }
 
     +event.messageChannel.sendMessage(MessageCreate {
       embeds += Embed {
