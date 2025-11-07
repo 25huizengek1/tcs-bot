@@ -50,7 +50,6 @@ fun JDA.roleCommands() {
 
   onCommand("addrole") { event ->
     +event.deferReply(true)
-    +event.hook.editOriginal(":white_check_mark:")
 
     val menuName = event.getOption<String>("menu_name") ?: "default"
     val role = event.getOption<Role>("role")!!
@@ -58,7 +57,9 @@ fun JDA.roleCommands() {
 
     runCatching {
       editRole(event.guild!!.id, role.id, description, menuName)
-    }.printException()
+    }.printException().onFailure { return@onCommand +event.hook.editOriginal("An error occurred") }
+
+    +event.hook.editOriginal(":white_check_mark:")
   }
 
   onCommand("removerole") { event ->

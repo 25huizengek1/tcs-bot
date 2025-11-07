@@ -1,5 +1,6 @@
 package nl.bartoostveen.tcsbot.database
 
+import nl.bartoostveen.tcsbot.database.Guild
 import nl.bartoostveen.tcsbot.suspendTransaction
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.and
@@ -99,7 +100,7 @@ suspend fun editRole(
   description: String?,
   menuName: String
 ) = suspendTransaction {
-  val guild = getGuild(guildId) ?: error("Guild does not exist")
+  val guild = getGuild(guildId) ?: Guild.new { this.discordId = guildId }
 
   GuildRoles.upsert(GuildRoles.discordId, GuildRoles.guild) {
     it[this.guild] = guild.id
