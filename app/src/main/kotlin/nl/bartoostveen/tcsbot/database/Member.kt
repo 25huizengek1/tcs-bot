@@ -10,6 +10,7 @@ import org.jetbrains.exposed.v1.dao.ULongEntity
 import org.jetbrains.exposed.v1.dao.ULongEntityClass
 import org.jetbrains.exposed.v1.dao.with
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.upsert
 
 object GuildMembers : Table("guild_members") {
   val guild = reference(
@@ -50,16 +51,17 @@ suspend fun getMember(
   guildId: String? = null,
   fetchGuilds: Boolean = false
 ) = suspendTransaction {
-  val guild = guildId?.let { getGuild(it) }
-
   Member
     .find { Members.discordId eq discordId }
-    .let { if (fetchGuilds) it.with(Member::guilds) else it }
+    .let { if (fetchGuilds) it else it }
     .firstOrNull()
-    ?.also { member -> // add member to guild if it exists
-      if (guild != null && member.guilds.none { it.id == guild.id }) GuildMembers.insert {
-        it[this.guild] = guild.id
-        it[this.member] = member.id
+    // add member to guild if it exists
+    ?.also { member ->
+      guildId?.let { getGuild(it) }?.let { guild ->
+        GuildMembers.upsert(GuildMembers.guild, GuildMembers.member) {
+          it[this.guild] = guild.id
+          it[this.member] = member.id
+        }
       }
     }
 }
