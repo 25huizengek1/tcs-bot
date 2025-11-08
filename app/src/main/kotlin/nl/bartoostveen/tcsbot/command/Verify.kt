@@ -67,10 +67,10 @@ fun JDA.verifyCommands() {
       embeds += Embed(
         title = "Before you can access significant channels, you need to verify yourself.",
         description = "You can log in using your UT account by tapping the button below\n" +
-          "This way, we'll update your display name on all module servers you're in, just like in the old official server\n\n" +
+          "This way, we'll update your display name on all module servers you're in, just like in the old official server(s)\n\n" +
           "We won't store any information (see Microsoft authentication dialog) except for your email\n" +
-          "Don't believe me? This bot is entirely open source! (go laugh at my awful code!)\n" +
-          "https://github.com/25huizengek1/tcs-bot",
+          "If you still have questions or concerns, this bot is entirely open source!\n" +
+          "https://github.com/25huizengek1/tcs-bot (or send a DM to @huizengek / an email to [tcsbot@bartoostveen.nl](mailto:tcsbot@bartoostveen.nl))",
         authorIcon = selfUser.effectiveAvatarUrl,
         authorName = selfUser.asTag,
         color = Color.BLUE.rgb
@@ -83,7 +83,11 @@ fun JDA.verifyCommands() {
 
   onButton("verify") { event ->
     +event.deferReply(true)
-    val dbMember = getMember(event.member!!.id)
+    val dbMember = getMember(
+      discordId = event.member!!.id,
+      guildId = event.guild!!.id,
+      fetchGuilds = true
+    )
     if (dbMember?.email != null) {
       assignRole(dbMember)
       return@onButton +event.hook.editOriginal("Already verified, applying changes...")

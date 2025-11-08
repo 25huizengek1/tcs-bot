@@ -45,11 +45,23 @@ class Member(id: EntityID<ULong>) : ULongEntity(id) {
   var email by Members.email
 }
 
-suspend fun getMember(discordId: String, fetchGuilds: Boolean = false) = suspendTransaction {
+suspend fun getMember(
+  discordId: String,
+  guildId: String? = null,
+  fetchGuilds: Boolean = false
+) = suspendTransaction {
+  val guild = guildId?.let { getGuild(it) }
+
   Member
     .find { Members.discordId eq discordId }
     .let { if (fetchGuilds) it.with(Member::guilds) else it }
     .firstOrNull()
+    ?.also { member -> // add member to guild if it exists
+      if (guild != null && member.guilds.none { it.id == guild.id }) GuildMembers.insert {
+        it[this.guild] = guild.id
+        it[this.member] = member.id
+      }
+    }
 }
 
 suspend fun getMemberByNonce(nonce: String, eager: Boolean = true) = suspendTransaction {
@@ -74,7 +86,11 @@ suspend fun editMember(discordId: String, guildId: String? = null, operation: Me
   )
 }
 
-suspend fun editMember(member: Member, guildId: String? = null, operation: Member.() -> Unit) = suspendTransaction {
+suspend fun editMember(
+  member: Member,
+  guildId: String? = null,
+  operation: Member.() -> Unit
+) = suspendTransaction {
   val member = member.apply(operation)
 
   val guild = if (guildId == null) return@suspendTransaction
