@@ -5,6 +5,7 @@ import io.github.crackthecodeabhi.kreds.connection.newClient
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpRequestRetry
+import io.ktor.client.plugins.cache.HttpCache
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
@@ -147,6 +148,7 @@ object AppConfig {
           retryOnTimeout = true
         )
       }
+      install(HttpCache)
     }
   }
 
