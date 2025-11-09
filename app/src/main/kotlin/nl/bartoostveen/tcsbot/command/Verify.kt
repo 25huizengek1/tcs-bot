@@ -165,7 +165,7 @@ suspend fun updateNickname(
   course: String?,
   proxy: String?
 ): Pair<CourseUser.Enrollment.Role?, AuditableRestAction<Void?>> {
-  val name = name.take(min(name.length, 32))
+  val name = name.take(min(name.length, 22))
 
   val highestRole = course?.let {
     runCatching {
