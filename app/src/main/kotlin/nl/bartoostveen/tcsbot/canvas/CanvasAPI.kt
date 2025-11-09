@@ -3,6 +3,8 @@ package nl.bartoostveen.tcsbot.canvas
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpRequestRetry
+import io.ktor.client.plugins.cache.HttpCache
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
@@ -16,6 +18,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import nl.bartoostveen.tcsbot.AppConfig
+import nl.bartoostveen.tcsbot.AppConfig.Environment
 import nl.bartoostveen.tcsbot.util.SerializableInstant
 import nl.bartoostveen.tcsbot.database.Guild
 import nl.bartoostveen.tcsbot.util.printException
@@ -25,13 +28,24 @@ import kotlin.time.ExperimentalTime
 open class CanvasAPI(
   private val baseUrl: String = AppConfig.CANVAS_BASE_URL,
   private val accessToken: String = AppConfig.CANVAS_ACCESS_TOKEN,
-  private val json: Json = nl.bartoostveen.tcsbot.json
+  private val json: Json = nl.bartoostveen.tcsbot.json,
+  private val verbose: Boolean = AppConfig.ENVIRONMENT == Environment.DEVELOPMENT
 ) {
   companion object Default : CanvasAPI()
 
   val httpClient = HttpClient(CIO) {
-    install(Logging) { level = LogLevel.ALL }
+    install(Logging) {
+      level = if (verbose) LogLevel.ALL else LogLevel.INFO
+    }
     install(ContentNegotiation) { json(json) }
+    install(HttpRequestRetry) {
+      exponentialDelay()
+      retryOnException(
+        maxRetries = 3,
+        retryOnTimeout = true
+      )
+    }
+    install(HttpCache)
     defaultRequest {
       url(baseUrl)
     }
