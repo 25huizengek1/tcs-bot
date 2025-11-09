@@ -124,7 +124,10 @@ fun Route.authRouter(jda: JDA) = route("/oauth") {
       } ?: jwt.string("name") ?: badRequest("Invalid token")
       val email = jwt.string("email") ?: badRequest("Invalid token")
 
-      if (!jda.assignRole(name, email, nonce)) throw RuntimeException("JDA failed to assign role")
+      val success = runCatching {
+        jda.assignRole(name, email, nonce)
+      }.printException().getOrDefault(false)
+      if (!success) throw RuntimeException("JDA failed to assign role")
       call.respondHtml {
         head {
           title {

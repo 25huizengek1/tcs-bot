@@ -2,6 +2,7 @@ package nl.bartoostveen.tcsbot.util
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
 import nl.bartoostveen.tcsbot.AppConfig
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -17,7 +18,7 @@ class DatabaseElement(val db: Database) : AbstractCoroutineContextElement(Key) {
 
 @Suppress("DEPRECATION") // stop deprecating stuff for no reason Jetbrains
 suspend fun <T> suspendTransaction(
-  context: CoroutineContext? = null,
+  context: CoroutineContext? = SupervisorJob(),
   db: Database? = null,
   transactionIsolation: Int? = null,
   readOnly: Boolean? = null,

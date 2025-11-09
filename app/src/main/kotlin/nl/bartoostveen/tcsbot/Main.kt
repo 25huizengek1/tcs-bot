@@ -41,6 +41,8 @@ import nl.bartoostveen.tcsbot.util.HttpResponseException
 import nl.bartoostveen.tcsbot.util.notFound
 import nl.bartoostveen.tcsbot.util.splitAtIndex
 import nl.bartoostveen.tcsbot.util.unaryPlus
+import org.postgresql.util.PSQLException
+import org.sqlite.SQLiteException
 import java.io.File
 
 val env = System.getenv().toMutableMap()
@@ -118,6 +120,9 @@ object GlobalEventListener : ListenerAdapter() {
 private fun Application.statusPages() = install(StatusPages) {
   exception<Throwable> { call, cause ->
     when (cause) {
+      // breaks because of coroutine hierarchy, but may still be useful to logging
+      is SQLiteException, is PSQLException -> cause.printStackTrace()
+
       is HttpResponseException -> call.respondText(
         text = "${cause.code}: ${cause.body}",
         status = cause.code
