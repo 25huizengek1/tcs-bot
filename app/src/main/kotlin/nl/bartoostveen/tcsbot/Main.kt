@@ -29,8 +29,6 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
-import io.micrometer.prometheus.PrometheusConfig
-import io.micrometer.prometheus.PrometheusMeterRegistry
 import kotlinx.serialization.json.Json
 import net.dv8tion.jda.api.entities.Activity
 import net.dv8tion.jda.api.events.session.ReadyEvent
@@ -39,6 +37,10 @@ import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import nl.bartoostveen.tcsbot.command.*
 import nl.bartoostveen.tcsbot.routing.authRouter
+import nl.bartoostveen.tcsbot.util.HttpResponseException
+import nl.bartoostveen.tcsbot.util.notFound
+import nl.bartoostveen.tcsbot.util.splitAtIndex
+import nl.bartoostveen.tcsbot.util.unaryPlus
 import java.io.File
 
 val env = System.getenv().toMutableMap()
@@ -88,10 +90,10 @@ fun main(args: Array<String>) {
     host = AppConfig.HOST,
     port = AppConfig.PORT
   ) {
-    install(ContentNegotiation) { json(json) }
     statusPages()
     processing()
     monitoring()
+
     routing {
       get("/") {
         call.respondText(
@@ -100,6 +102,7 @@ fun main(args: Array<String>) {
             "How did you even get here?"
         )
       }
+
       authRouter(jda)
     }
   }.start(wait = true)
@@ -128,7 +131,7 @@ private fun Application.statusPages() = install(StatusPages) {
       else -> {
         call.respondText(
           text = if (AppConfig.ENVIRONMENT == AppConfig.Environment.PRODUCTION) "500: Internal Server Error"
-            else "500: $cause",
+          else "500: $cause",
           status = HttpStatusCode.InternalServerError
         )
         cause.printStackTrace()
@@ -138,6 +141,7 @@ private fun Application.statusPages() = install(StatusPages) {
 }
 
 private fun Application.processing() {
+  install(ContentNegotiation) { json(json) }
   install(ForwardedHeaders)
   install(XForwardedHeaders)
   install(DefaultHeaders) { header("X-Engine", "Ktor") }
@@ -157,11 +161,9 @@ private fun Application.processing() {
 }
 
 private fun Application.monitoring() {
-  val registry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
-
   install(CallLogging)
   install(MicrometerMetrics) {
-    this.registry = registry
+    this.registry = AppConfig.metricsRegistry
   }
 
   routing {
@@ -171,7 +173,7 @@ private fun Application.monitoring() {
         !call.request.origin.remoteHost.startsWith(AppConfig.METRICS_PREFIX)
       ) notFound()
 
-      call.respond(registry.scrape())
+      call.respond(AppConfig.metricsRegistry.scrape())
     }
   }
 }

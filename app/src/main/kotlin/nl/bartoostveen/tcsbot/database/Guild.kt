@@ -1,7 +1,6 @@
 package nl.bartoostveen.tcsbot.database
 
-import nl.bartoostveen.tcsbot.database.Guild
-import nl.bartoostveen.tcsbot.suspendTransaction
+import nl.bartoostveen.tcsbot.util.suspendTransaction
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
@@ -73,7 +72,13 @@ suspend fun editGuild(discordId: String, operation: Guild.() -> Unit) = suspendT
   (getGuild(discordId) ?: Guild.new { this.discordId = discordId }).apply(operation)
 }
 
-suspend fun getRole(guildId: String, roleId: String, menuName: String) = suspendTransaction {
+private const val defaultMenuName = "default"
+
+suspend fun getRole(
+  guildId: String,
+  roleId: String,
+  menuName: String = defaultMenuName
+) = suspendTransaction {
   (GuildRoles innerJoin Guilds)
     .select(GuildRoles.columns)
     .where {
@@ -85,7 +90,10 @@ suspend fun getRole(guildId: String, roleId: String, menuName: String) = suspend
     .firstOrNull()
 }
 
-suspend fun getRoles(guildId: String, menuName: String) = suspendTransaction {
+suspend fun getRoles(
+  guildId: String,
+  menuName: String = defaultMenuName
+) = suspendTransaction {
   (GuildRoles innerJoin Guilds)
     .select(GuildRoles.columns)
     .where { (Guilds.discordId eq guildId) and (GuildRoles.menuName eq menuName) }
@@ -97,8 +105,8 @@ suspend fun getRoles(guildId: String, menuName: String) = suspendTransaction {
 suspend fun editRole(
   guildId: String,
   roleId: String,
-  description: String?,
-  menuName: String
+  description: String? = null,
+  menuName: String = defaultMenuName
 ) = suspendTransaction {
   val guild = getGuild(guildId) ?: Guild.new { this.discordId = guildId }
 
@@ -110,7 +118,11 @@ suspend fun editRole(
   }
 }
 
-suspend fun removeRole(guildId: String, roleId: String, menuName: String) = suspendTransaction {
+suspend fun removeRole(
+  guildId: String,
+  roleId: String,
+  menuName: String = defaultMenuName
+) = suspendTransaction {
   (GuildRoles innerJoin Guilds).delete(GuildRoles) {
     (Guilds.discordId eq guildId) and
       (GuildRoles.discordId eq roleId) and

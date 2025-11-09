@@ -1,6 +1,6 @@
 package nl.bartoostveen.tcsbot.database
 
-import nl.bartoostveen.tcsbot.suspendTransaction
+import nl.bartoostveen.tcsbot.util.suspendTransaction
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
@@ -48,7 +48,7 @@ suspend fun addCourse(
 
   val courseRow = Courses.upsert(Courses.guild, Courses.canvasId) {
     it[this.guild] = guild.id
-    it[this.canvasId] = if (courseId.startsWith("course_")) courseId else "course_$courseId"
+    it[this.canvasId] = courseId.withCoursePrefix
   }
   if (primary) {
     commit()
@@ -60,14 +60,12 @@ suspend fun addCourse(
   }
 }
 
-suspend fun getCourse(canvasId: String, guildId: String) = suspendTransaction {
-  val canvasId = if (canvasId.startsWith("course_")) canvasId else "course_$canvasId"
-
+suspend fun getCourse(guildId: String, canvasId: String) = suspendTransaction {
   (Courses innerJoin Guilds)
     .select(Courses.columns)
     .where {
       (Guilds.discordId eq guildId) and
-        (Courses.canvasId eq canvasId)
+        (Courses.canvasId eq canvasId.withCoursePrefix)
     }
     .firstOrNull()
     ?.let { Course.wrapRow(it) }
@@ -78,12 +76,15 @@ suspend fun editCourse(
   guildId: String,
   operation: Course.() -> Unit
 ) = suspendTransaction {
-  (getCourse(canvasId, guildId))?.apply(operation) != null
+  (getCourse(guildId, canvasId))?.apply(operation) != null
 }
 
 suspend fun removeCourse(guildId: String, courseId: String) = suspendTransaction {
   (Courses innerJoin Guilds).delete(Courses) {
     (Guilds.discordId eq guildId) and
-      (Courses.canvasId eq courseId)
+      (Courses.canvasId eq courseId.withCoursePrefix)
   }
 }
+
+val String.withCoursePrefix get() = if (startsWith("course_")) this else "course_$this"
+val String.withoutCoursePrefix get() = removePrefix("course_")

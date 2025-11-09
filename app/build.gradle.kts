@@ -54,6 +54,9 @@ dependencies {
   implementation(libs.kreds)
 
   implementation(libs.kotlinx.datetime)
+  implementation(libs.kotlinx.coroutines.core)
+  testImplementation(libs.kotlinx.coroutines.test)
+
   implementation(libs.flexmark.md)
   implementation(libs.jwt)
   implementation(libs.jwt.jwks)

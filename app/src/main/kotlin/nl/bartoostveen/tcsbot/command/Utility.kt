@@ -11,7 +11,7 @@ import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.Member
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
 import nl.bartoostveen.tcsbot.database.getMember
-import nl.bartoostveen.tcsbot.unaryPlus
+import nl.bartoostveen.tcsbot.util.unaryPlus
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.toJavaInstant

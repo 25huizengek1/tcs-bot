@@ -21,6 +21,13 @@ import net.dv8tion.jda.api.JDA
 import nl.bartoostveen.tcsbot.*
 import nl.bartoostveen.tcsbot.command.assignRole
 import nl.bartoostveen.tcsbot.database.getMemberByNonce
+import nl.bartoostveen.tcsbot.util.asNullableString
+import nl.bartoostveen.tcsbot.util.badRequest
+import nl.bartoostveen.tcsbot.util.internalServerError
+import nl.bartoostveen.tcsbot.util.printException
+import nl.bartoostveen.tcsbot.util.queryParameter
+import nl.bartoostveen.tcsbot.util.sha256
+import nl.bartoostveen.tcsbot.util.string
 import java.net.URI
 import java.security.interfaces.RSAPublicKey
 import java.util.concurrent.TimeUnit
@@ -43,7 +50,7 @@ fun Route.authRouter(jda: JDA) = route("/oauth") {
 
   get("/redirect") {
     val nonce = queryParameter("nonce")
-    if (getMemberByNonce(nonce, eager = false) == null) badRequest("Invalid nonce")
+    if (getMemberByNonce(nonce, fetchGuilds = false) == null) badRequest("Invalid nonce")
 
     val codeVerifier = generateNonce(43)
     val codeChallenge = base64.encode(codeVerifier.sha256)
@@ -71,6 +78,7 @@ fun Route.authRouter(jda: JDA) = route("/oauth") {
         .build()
     )
   }
+
   get("/callback") {
     call.parameters["error_description"]?.let {
       badRequest(it)

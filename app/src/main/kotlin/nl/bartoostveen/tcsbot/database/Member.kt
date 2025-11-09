@@ -1,6 +1,6 @@
 package nl.bartoostveen.tcsbot.database
 
-import nl.bartoostveen.tcsbot.suspendTransaction
+import nl.bartoostveen.tcsbot.util.suspendTransaction
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
@@ -50,10 +50,10 @@ suspend fun getMember(
   discordId: String,
   guildId: String? = null,
   fetchGuilds: Boolean = false
-) = suspendTransaction {
+): Member? = suspendTransaction {
   Member
     .find { Members.discordId eq discordId }
-    .let { if (fetchGuilds) it else it }
+    .let { if (fetchGuilds) it.with(Member::guilds) else it }
     .firstOrNull()
     // add member to guild if it exists
     ?.also { member ->
@@ -66,11 +66,14 @@ suspend fun getMember(
     }
 }
 
-suspend fun getMemberByNonce(nonce: String, eager: Boolean = true) = suspendTransaction {
+suspend fun getMemberByNonce(
+  nonce: String,
+  fetchGuilds: Boolean = true
+) = suspendTransaction {
   Member
     .find { Members.authNonce eq nonce }
     .let {
-      if (eager) it.with(Member::guilds) else it
+      if (fetchGuilds) it.with(Member::guilds) else it
     }
     .firstOrNull()
 }
@@ -95,11 +98,13 @@ suspend fun editMember(
 ) = suspendTransaction {
   val member = member.apply(operation)
 
-  val guild = if (guildId == null) return@suspendTransaction
+  val guild = if (guildId == null) return@suspendTransaction member
   else Guild.find { Guilds.discordId eq guildId }.firstOrNull() ?: error("Guild does not exist")
 
   if (guild !in member.guilds) GuildMembers.insert {
     it[this.guild] = guild.id
     it[this.member] = member.id
   }
+
+  member
 }

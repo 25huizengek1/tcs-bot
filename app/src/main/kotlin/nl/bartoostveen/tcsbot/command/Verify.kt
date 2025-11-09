@@ -24,6 +24,10 @@ import nl.bartoostveen.tcsbot.*
 import nl.bartoostveen.tcsbot.canvas.CanvasAPI
 import nl.bartoostveen.tcsbot.canvas.CourseUser
 import nl.bartoostveen.tcsbot.database.*
+import nl.bartoostveen.tcsbot.util.adminPermissions
+import nl.bartoostveen.tcsbot.util.printException
+import nl.bartoostveen.tcsbot.util.suspendTransaction
+import nl.bartoostveen.tcsbot.util.unaryPlus
 import java.awt.Color
 import kotlin.math.min
 import kotlin.time.Clock
@@ -123,7 +127,7 @@ fun JDA.verifyCommands() {
   onCommand("changeuserdata") { event ->
     +event.deferReply(true)
 
-    if (event.member?.id != AppConfig.DISCORD_DEPLOYER_ID)
+    if (event.member?.id !in AppConfig.DISCORD_DEPLOYER_ID)
       return@onCommand +event.hook.editOriginal("You are not the deployer of this bot!")
 
     val member = event.getOption<net.dv8tion.jda.api.entities.Member>("member")!!

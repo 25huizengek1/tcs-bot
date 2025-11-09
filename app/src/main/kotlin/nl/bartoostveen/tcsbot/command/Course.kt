@@ -7,13 +7,13 @@ import dev.minn.jda.ktx.interactions.commands.slash
 import dev.minn.jda.ktx.interactions.components.getOption
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
-import nl.bartoostveen.tcsbot.adminPermissions
+import nl.bartoostveen.tcsbot.util.adminPermissions
 import nl.bartoostveen.tcsbot.database.addCourse
 import nl.bartoostveen.tcsbot.database.editCourse
 import nl.bartoostveen.tcsbot.database.getGuild
 import nl.bartoostveen.tcsbot.database.removeCourse
-import nl.bartoostveen.tcsbot.printException
-import nl.bartoostveen.tcsbot.unaryPlus
+import nl.bartoostveen.tcsbot.util.printException
+import nl.bartoostveen.tcsbot.util.unaryPlus
 
 context(list: CommandListUpdateAction)
 fun JDA.courseCommands() {

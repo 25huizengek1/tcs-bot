@@ -2,6 +2,7 @@
 kotlin = "2.2.21"
 ktor = "3.3.1"
 exposed = "1.0.0-rc-2"
+coroutines = "1.10.2"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -41,6 +42,9 @@ hikaricp = { module = "com.zaxxer:HikariCP", version = "7.0.2" }
 kreds = { module = "io.github.crackthecodeabhi:kreds", version = "0.9.1" }
 
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version = "0.7.1" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+
 flexmark-md = { module = "com.vladsch.flexmark:flexmark-html2md-converter", version = "0.64.6" }
 jwt = { module = "com.auth0:java-jwt", version = "4.5.0" }
 jwt-jwks = { module = "com.auth0:jwks-rsa", version = "0.23.0" }

@@ -12,9 +12,9 @@ import kotlinx.coroutines.future.await
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.Member
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
-import nl.bartoostveen.tcsbot.adminPermissions
-import nl.bartoostveen.tcsbot.printException
-import nl.bartoostveen.tcsbot.unaryPlus
+import nl.bartoostveen.tcsbot.util.adminPermissions
+import nl.bartoostveen.tcsbot.util.printException
+import nl.bartoostveen.tcsbot.util.unaryPlus
 import java.util.concurrent.TimeUnit
 
 context(list: CommandListUpdateAction)

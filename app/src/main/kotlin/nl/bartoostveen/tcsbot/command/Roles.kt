@@ -15,10 +15,10 @@ import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
-import nl.bartoostveen.tcsbot.adminPermissions
+import nl.bartoostveen.tcsbot.util.adminPermissions
 import nl.bartoostveen.tcsbot.database.*
-import nl.bartoostveen.tcsbot.printException
-import nl.bartoostveen.tcsbot.unaryPlus
+import nl.bartoostveen.tcsbot.util.printException
+import nl.bartoostveen.tcsbot.util.unaryPlus
 import java.awt.Color
 
 context(list: CommandListUpdateAction)

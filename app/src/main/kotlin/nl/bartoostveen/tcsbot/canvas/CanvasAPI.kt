@@ -16,9 +16,10 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import nl.bartoostveen.tcsbot.AppConfig
-import nl.bartoostveen.tcsbot.SerializableInstant
+import nl.bartoostveen.tcsbot.util.SerializableInstant
 import nl.bartoostveen.tcsbot.database.Guild
-import nl.bartoostveen.tcsbot.printException
+import nl.bartoostveen.tcsbot.util.printException
+import nl.bartoostveen.tcsbot.database.withCoursePrefix
 import kotlin.time.ExperimentalTime
 
 open class CanvasAPI(
@@ -41,13 +42,12 @@ open class CanvasAPI(
     proxy: String?
   ): Result<List<Announcement>> = runCatching {
     httpClient.get("${proxy.orEmpty()}/api/v1/announcements") {
-      course.forEach { parameter("context_codes[]", if (it.startsWith("course_")) it else "course_$it") }
+      course.forEach { parameter("context_codes[]", it.withCoursePrefix) }
       parameter("active_only", "true")
       if (proxy == null) token()
     }.body()
   }
 
-  // Best effort guess, I guess
   suspend fun searchUser(
     name: String,
     email: String? = null,
