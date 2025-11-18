@@ -14,6 +14,7 @@ object Guilds : ULongIdTable("guilds") {
   val announcementText = text("announcement_text").nullable()
   val verifiedRole = varchar("verified_role_id", 20).nullable()
   val teacherRole = varchar("teacher_role_id", 20).nullable()
+  val enrolledRole = varchar("enrolled_role_id", 20).nullable()
 }
 
 class Guild(id: EntityID<ULong>) : ULongEntity(id) {
@@ -24,6 +25,7 @@ class Guild(id: EntityID<ULong>) : ULongEntity(id) {
   var announcementText by Guilds.announcementText
   var verifiedRole by Guilds.verifiedRole
   var teacherRole by Guilds.teacherRole
+  var enrolledRole by Guilds.enrolledRole
   val members by Member via GuildMembers
   val courses by Course referrersOn Courses.guild
   val roles by GuildRole referrersOn GuildRoles.guild

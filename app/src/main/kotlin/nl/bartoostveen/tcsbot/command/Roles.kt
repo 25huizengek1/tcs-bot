@@ -46,6 +46,11 @@ fun JDA.roleCommands() {
       restrict(guild = true, adminPermissions)
       option<Role>("role", "The role", required = true)
     }
+
+    slash("setenrolledrole", "Sets the 'enrolled' role") {
+      restrict(guild = true, adminPermissions)
+      option<Role>("role", "The role", required = true)
+    }
   }
 
   onCommand("addrole") { event ->
@@ -126,6 +131,10 @@ fun JDA.roleCommands() {
 
   onCommand("setteacherrole") { event ->
     setRoleCommand(event) { teacherRole = it }
+  }
+
+  onCommand("setenrolledrole") { event ->
+    setRoleCommand(event) { enrolledRole = it }
   }
 }
 

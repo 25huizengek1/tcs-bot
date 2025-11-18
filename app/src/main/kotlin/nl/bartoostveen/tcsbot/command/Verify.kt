@@ -232,6 +232,7 @@ suspend fun JDA.assignRole(dbMember: Member): Boolean = runCatching {
         val guild = getGuildById(dbGuild.discordId) ?: error("Guild does not exist anymore")
         val role = dbGuild.verifiedRole?.let { guild.getRoleById(it) } ?: error("Role does not exist")
         val teacherRole = dbGuild.teacherRole?.let { guild.getRoleById(it) }
+        val enrolledRole = dbGuild.enrolledRole?.let { guild.getRoleById(it) }
         val member = guild.retrieveMemberById(dbMember.discordId).await() ?: error("Member left guild")
 
         val (canvasRole, action) = updateNickname(
@@ -242,11 +243,18 @@ suspend fun JDA.assignRole(dbMember: Member): Boolean = runCatching {
           proxy = dbGuild.primaryCourse?.proxyUrl
         )
         action.await()
+
         delay(500L) // Because of the server-side race condition in Discord
         +guild.addRoleToMember(member, role)
-        if (canvasRole != null && canvasRole > CourseUser.Enrollment.Role.Student) teacherRole?.let {
-          delay(500)
-          +guild.addRoleToMember(member, it)
+        if (canvasRole != null) {
+          if (canvasRole > CourseUser.Enrollment.Role.Student) teacherRole?.let {
+            delay(500)
+            +guild.addRoleToMember(member, it)
+          }
+          enrolledRole?.let {
+            delay(500)
+            +guild.addRoleToMember(member, it)
+          }
         }
       }.printException().isSuccess
     }.any { it }
