@@ -39,6 +39,7 @@
             allowUnfree = true;
             overlays = [
               inputs.build-gradle-application.overlays.default
+              (final: _prev: { jdk = final.jdk25_headless; })
             ];
           };
           version = self.shortRev or "dirty";
