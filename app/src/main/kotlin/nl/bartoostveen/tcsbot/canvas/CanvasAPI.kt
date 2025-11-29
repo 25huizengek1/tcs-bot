@@ -19,10 +19,12 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import nl.bartoostveen.tcsbot.AppConfig
 import nl.bartoostveen.tcsbot.AppConfig.Environment
-import nl.bartoostveen.tcsbot.util.SerializableInstant
 import nl.bartoostveen.tcsbot.database.Guild
-import nl.bartoostveen.tcsbot.util.printException
 import nl.bartoostveen.tcsbot.database.withCoursePrefix
+import nl.bartoostveen.tcsbot.util.SerializableInstant
+import nl.bartoostveen.tcsbot.util.buildTrustManager
+import nl.bartoostveen.tcsbot.util.printException
+import javax.net.ssl.X509TrustManager
 import kotlin.time.ExperimentalTime
 
 open class CanvasAPI(
@@ -48,6 +50,11 @@ open class CanvasAPI(
     install(HttpCache)
     defaultRequest {
       url(baseUrl)
+    }
+    engine {
+      https {
+        trustManager = buildTrustManager<X509TrustManager>("/etc/ssl/certs/ca-bundle.crt")
+      }
     }
   }
 
