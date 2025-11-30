@@ -48,7 +48,6 @@ dependencies {
   implementation(libs.exposed.core)
   implementation(libs.exposed.dao)
   implementation(libs.exposed.jdbc)
-  implementation(libs.sqlite)
   implementation(libs.postgres)
   implementation(libs.hikaricp)
   implementation(libs.kreds)

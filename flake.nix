@@ -46,6 +46,10 @@
             ];
           };
           version = self.shortRev or "dirty";
+          env = {
+            JAVA_HOME = pkgs.jdk.home;
+            GRADLE_JAVA_HOME = pkgs.jdk.home;
+          };
         in
         {
           _module.args.pkgs = pkgs;
@@ -62,9 +66,7 @@
               updateVerificationMetadata
             ];
 
-            env = {
-              GRADLE_JAVA_HOME = "${pkgs.jdk}";
-            };
+            inherit env;
 
             shellHook = ''
               echo
@@ -75,20 +77,9 @@
             '';
           };
 
-          packages = {
-            default =
-              (pkgs.callPackage ./package.nix {
-                inherit version;
-                inherit (pkgs) jdk;
-              }).overrideAttrs
-                {
-                  env.JAVA_HOME = "${pkgs.jdk}";
-                  env.GRADLE_JAVA_HOME = "${pkgs.jdk}";
-                };
+          packages.default = (pkgs.callPackage ./package.nix { inherit version; }).overrideAttrs {
+            inherit env;
           };
         };
-
-      flake = {
-      };
     };
 }
