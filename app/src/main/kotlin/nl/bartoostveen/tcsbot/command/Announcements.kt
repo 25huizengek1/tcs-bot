@@ -14,6 +14,7 @@ import dev.minn.jda.ktx.messages.send
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import net.dv8tion.jda.api.JDA
+import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
 import nl.bartoostveen.tcsbot.util.adminPermissions
@@ -24,6 +25,7 @@ import nl.bartoostveen.tcsbot.database.editGuild
 import nl.bartoostveen.tcsbot.database.getGuild
 import nl.bartoostveen.tcsbot.util.printException
 import nl.bartoostveen.tcsbot.util.suspendTransaction
+import nl.bartoostveen.tcsbot.util.trimmedAsDescription
 import nl.bartoostveen.tcsbot.util.unaryPlus
 import org.jetbrains.exposed.v1.dao.with
 import kotlin.time.Clock
@@ -66,7 +68,7 @@ fun JDA.announceCommands(reload: (() -> Unit)? = startCron(this)) {
           authorName = event.member?.nickname ?: event.user.name,
           authorIcon = event.member?.avatarUrl ?: event.user.effectiveAvatarUrl,
           timestamp = Clock.System.now().toJavaInstant(),
-          description = body
+          description = body.trimmedAsDescription
         )
       )
     )?.queue() ?: return@onCommand +event.hook.editOriginal("Channel <#$channelId> not found!")
@@ -112,7 +114,7 @@ fun JDA.sendAnnouncements(guildId: String, channelId: String, text: String?, ann
             authorName = announcement.authorName,
             authorIcon = announcement.author?.avatarUrl,
             timestamp = announcement.postedAt.toJavaInstant(),
-            description = flexmarkdown.convert(announcement.message),
+            description = flexmarkdown.convert(announcement.message).trimmedAsDescription,
             url = announcement.url
           )
         )
