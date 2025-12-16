@@ -30,6 +30,8 @@ class Guild(id: EntityID<ULong>) : ULongEntity(id) {
   val courses by Course referrersOn Courses.guild
   val roles by GuildRole referrersOn GuildRoles.guild
 
+  val allRoles get() = listOf(verifiedRole, teacherRole, enrolledRole)
+
   val primaryCourse: Course? get() = courses.firstOrNull { it.primary } ?: courses.firstOrNull()
 }
 

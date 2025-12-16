@@ -38,6 +38,7 @@ class Course(id: EntityID<ULong>) : ULongEntity(id) {
   var proxyUrl by Courses.proxyUrl
   var guild by Guild referencedOn Courses.guild
 }
+
 // everything should change when calling this, which is why this does not take an "operation"
 suspend fun addCourse(
   guildId: String,

@@ -4,6 +4,7 @@ import com.auth0.jwk.JwkProviderBuilder
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.github.crackthecodeabhi.kreds.args.SetOption
+import io.github.crackthecodeabhi.kreds.connection.KredsClient
 import io.ktor.client.call.body
 import io.ktor.client.request.forms.submitForm
 import io.ktor.http.Parameters
@@ -45,9 +46,10 @@ private val jwksProvider =
 
 private val base64 = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT_OPTIONAL)
 
-fun Route.authRouter(jda: JDA) = route("/oauth") {
-  val redis = AppConfig.redisClient ?: return@route
-
+fun Route.authRouter(
+  jda: JDA,
+  redis: KredsClient
+) = route("/oauth") {
   get("/redirect") {
     val nonce = queryParameter("nonce")
     if (getMemberByNonce(nonce, fetchGuilds = false) == null) badRequest("Invalid nonce")
@@ -90,39 +92,38 @@ fun Route.authRouter(jda: JDA) = route("/oauth") {
       redis.getDel("nonce:$nonce")
     }.getOrNull() ?: badRequest("Invalid state")
 
-    val token = AppConfig.httpClient.submitForm(
-      url = "${AppConfig.MICROSOFT_AUTH_ENDPOINT}/oauth2/v2.0/token",
-      formParameters = Parameters.build {
-        append("client_id", AppConfig.MICROSOFT_CLIENT_ID)
-        append("client_secret", AppConfig.MICROSOFT_CLIENT_SECRET)
-        append("scope", SCOPE)
-        append("redirect_uri", REDIRECT_URI)
-        append("grant_type", "authorization_code")
-        append("code", code)
-        append("code_verifier", codeVerifier)
-      }
-    ).body<OpenIDConnectTokenResponse>()
-
     val jwt = runCatching {
-      JWT.decode(token.idToken)
-    }.printException().getOrElse { badRequest("Invalid token") }
+      AppConfig.httpClient.submitForm(
+        url = "${AppConfig.MICROSOFT_AUTH_ENDPOINT}/oauth2/v2.0/token",
+        formParameters = Parameters.build {
+          append("client_id", AppConfig.MICROSOFT_CLIENT_ID)
+          append("client_secret", AppConfig.MICROSOFT_CLIENT_SECRET)
+          append("scope", SCOPE)
+          append("redirect_uri", REDIRECT_URI)
+          append("grant_type", "authorization_code")
+          append("code", code)
+          append("code_verifier", codeVerifier)
+        }
+      ).body<OpenIDConnectTokenResponse>()
+    }
+      .mapCatching { JWT.decode(it.idToken) }
+      .printException()
+      .getOrElse { badRequest("Could not get token") }
 
     runCatching {
       if (jwt.getClaim("nonce").asNullableString != nonce) badRequest("Invalid token")
       val jwk = jwksProvider.get(jwt.getHeaderClaim("kid").asNullableString)
       val algorithm = Algorithm.RSA256(jwk.publicKey as RSAPublicKey, null)
       algorithm.verify(jwt)
-    }.printException().onFailure {
-      badRequest("Invalid token")
-    }
+    }.printException().onFailure { badRequest("Invalid token: signature seems to be invalid") }
 
     runCatching {
       val name = let {
         val firstName = jwt.string("given_name") ?: return@let null
         val familyName = jwt.string("family_name") ?: return@let null
         "$firstName $familyName"
-      } ?: jwt.string("name") ?: badRequest("Invalid token")
-      val email = jwt.string("email") ?: badRequest("Invalid token")
+      } ?: jwt.string("name") ?: badRequest("Invalid token: does not contain name")
+      val email = jwt.string("email") ?: badRequest("Invalid token: does not contain email")
 
       val success = runCatching {
         jda.assignRole(name, email, nonce)
@@ -130,16 +131,14 @@ fun Route.authRouter(jda: JDA) = route("/oauth") {
       if (!success) throw RuntimeException("JDA failed to assign role")
       call.respondHtml {
         head {
-          title {
-            +"Success!"
-          }
+          title { +"Success!" }
         }
         body {
-          h1 {
-            +"If you can read this, you've successfully linked your Discord account."
-          }
+          h1 { +"If you can read this, you've successfully linked your Discord account." }
+          p { +"You can now close this page" }
           p {
-            +"You can now close this page"
+            +"You are currently authenticated as: $name <$email>."
+            +"If you want to link your UT account to a different Discord account, perform /unlink in order to do so."
           }
         }
       }

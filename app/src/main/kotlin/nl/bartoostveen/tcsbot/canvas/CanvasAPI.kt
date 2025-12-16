@@ -24,14 +24,14 @@ import nl.bartoostveen.tcsbot.database.withCoursePrefix
 import nl.bartoostveen.tcsbot.util.SerializableInstant
 import nl.bartoostveen.tcsbot.util.buildTrustManager
 import nl.bartoostveen.tcsbot.util.printException
-import javax.net.ssl.X509TrustManager
 import kotlin.time.ExperimentalTime
 
-open class CanvasAPI(
+sealed class CanvasAPI(
   private val baseUrl: String = AppConfig.CANVAS_BASE_URL,
   private val accessToken: String = AppConfig.CANVAS_ACCESS_TOKEN,
   private val json: Json = nl.bartoostveen.tcsbot.json,
-  private val verbose: Boolean = AppConfig.ENVIRONMENT == Environment.DEVELOPMENT
+  private val verbose: Boolean = AppConfig.ENVIRONMENT == Environment.DEVELOPMENT,
+  private val caBundlePath: String? = AppConfig.CANVAS_CA_BUNDLE
 ) {
   companion object Default : CanvasAPI()
 
@@ -53,7 +53,7 @@ open class CanvasAPI(
     }
     engine {
       https {
-        trustManager = buildTrustManager<X509TrustManager>("/etc/ssl/certs/ca-bundle.crt")
+        caBundlePath?.let { trustManager = buildTrustManager(it) }
       }
     }
   }

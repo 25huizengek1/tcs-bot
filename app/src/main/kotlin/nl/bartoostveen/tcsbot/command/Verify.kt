@@ -6,21 +6,21 @@ import dev.minn.jda.ktx.events.onCommand
 import dev.minn.jda.ktx.interactions.commands.option
 import dev.minn.jda.ktx.interactions.commands.restrict
 import dev.minn.jda.ktx.interactions.commands.slash
-import dev.minn.jda.ktx.interactions.components.getOption
-import dev.minn.jda.ktx.interactions.components.row
-import dev.minn.jda.ktx.interactions.components.success
+import dev.minn.jda.ktx.interactions.components.*
 import dev.minn.jda.ktx.messages.Embed
 import dev.minn.jda.ktx.messages.MessageCreate
+import dev.minn.jda.ktx.messages.MessageEdit
 import dev.minn.jda.ktx.messages.send
 import io.ktor.http.encodeURLPath
 import io.ktor.util.generateNonce
 import kotlinx.coroutines.delay
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.Role
+import net.dv8tion.jda.api.entities.UserSnowflake
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.requests.restaction.AuditableRestAction
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
-import nl.bartoostveen.tcsbot.*
+import nl.bartoostveen.tcsbot.AppConfig
 import nl.bartoostveen.tcsbot.canvas.CanvasAPI
 import nl.bartoostveen.tcsbot.canvas.CourseUser
 import nl.bartoostveen.tcsbot.database.*
@@ -59,6 +59,8 @@ fun JDA.verifyCommands() {
       option<String>("name", "Must be non-null if email is non-null")
       option<String>("email", "Must be non-null if name is non-null")
     }
+
+    slash("unlink", "Unlink this Discord account from current UT account")
   }
 
   onCommand("verify") { event ->
@@ -70,11 +72,14 @@ fun JDA.verifyCommands() {
     (event.channel as? TextChannel)?.sendMessage(MessageCreate {
       embeds += Embed(
         title = "Before you can access significant channels, you need to verify yourself.",
-        description = "You can log in using your UT account by tapping the button below\n" +
-          "This way, we'll update your display name on all module servers you're in, just like in the old official server(s)\n\n" +
-          "We won't store any information (see Microsoft authentication dialog) except for your email\n" +
-          "If you still have questions or concerns, this bot is entirely open source!\n" +
-          "https://github.com/25huizengek1/tcs-bot (or send a DM to @huizengek / an email to [tcsbot@bartoostveen.nl](mailto:tcsbot@bartoostveen.nl))",
+        description = """
+          You can log in using your UT account by tapping the button below
+          This way, we'll update your display name on all module servers you're in, just like in the old official server(s)
+
+          We won't store any information (see Microsoft authentication dialog) except for your email
+          If you still have questions or concerns, this bot is entirely open source!
+          https://github.com/25huizengek1/tcs-bot (or send a DM to @huizengek / an email to [tcsbot@bartoostveen.nl](mailto:tcsbot@bartoostveen.nl))
+        """.trimIndent(),
         authorIcon = selfUser.effectiveAvatarUrl,
         authorName = selfUser.asTag,
         color = Color.BLUE.rgb
@@ -156,6 +161,43 @@ fun JDA.verifyCommands() {
       +event.hook.editOriginal("Updated member ${member.asMention} :white_check_mark:")
     }
   }
+
+  onCommand("unlink") { event ->
+    +event.deferReply(true)
+    +event.hook.editOriginal(MessageEdit {
+      embeds += Embed(
+        title = "Are you really 100% sure that you want to do this?",
+        description = """
+          Your permissions will instantly get removed, please be careful with this action! You probably do not want to do this:
+
+          - If your name is incorrect, please ask an administrator to change it
+          - You should only need this when wanting to re-link your UT account
+
+          Please note: if for some reason the bot was unable to find an associated account, it'll silently ignore you ever tried to unlink
+        """.trimIndent(),
+        authorIcon = selfUser.effectiveAvatarUrl,
+        authorName = selfUser.asTag,
+        color = Color.RED.rgb
+      )
+      components += row(
+        danger("confirm-unlink", "Yes, I really am 100% sure!"),
+        secondary("cancel-unlink", "Abort mission")
+      )
+    })
+  }
+
+  onButton("cancel-unlink") { event ->
+    +event.hook.editOriginal(MessageEdit(replace = true) {
+      content = "Unlinking aborted"
+    })
+  }
+
+  onButton("confirm-unlink") { event ->
+    +event.hook.editOriginal(MessageEdit(replace = true) {
+      content = "Performing unlink, this may take some time..."
+    })
+    removeRoles(event.user)
+  }
 }
 
 suspend fun updateNickname(
@@ -230,7 +272,7 @@ suspend fun JDA.assignRole(dbMember: Member): Boolean = runCatching {
     dbMember.guilds.map { dbGuild ->
       runCatching {
         val guild = getGuildById(dbGuild.discordId) ?: error("Guild does not exist anymore")
-        val role = dbGuild.verifiedRole?.let { guild.getRoleById(it) } ?: error("Role does not exist")
+        val verifiedRole = dbGuild.verifiedRole?.let { guild.getRoleById(it) } ?: error("Role does not exist")
         val teacherRole = dbGuild.teacherRole?.let { guild.getRoleById(it) }
         val enrolledRole = dbGuild.enrolledRole?.let { guild.getRoleById(it) }
         val member = guild.retrieveMemberById(dbMember.discordId).await() ?: error("Member left guild")
@@ -245,7 +287,7 @@ suspend fun JDA.assignRole(dbMember: Member): Boolean = runCatching {
         action.await()
 
         delay(500L) // Because of the server-side race condition in Discord
-        +guild.addRoleToMember(member, role)
+        +guild.addRoleToMember(member, verifiedRole)
         if (canvasRole != null) {
           if (canvasRole > CourseUser.Enrollment.Role.Student) teacherRole?.let {
             delay(500)
@@ -260,3 +302,30 @@ suspend fun JDA.assignRole(dbMember: Member): Boolean = runCatching {
     }.any { it }
   }
 }.printException().getOrDefault(false)
+
+suspend fun JDA.removeRoles(member: UserSnowflake) = runCatching {
+  getMember(member.id)?.let { removeRoles(it) }
+}.printException().let { }
+
+suspend fun JDA.removeRoles(dbMember: Member) = runCatching {
+  suspendTransaction {
+    editMember(dbMember) {
+      this.name = null
+      this.email = null
+      this.authNonce = null
+    }
+
+    dbMember.guilds.forEach { dbGuild ->
+      val guild = getGuildById(dbGuild.discordId) ?: error("Guild does not exist anymore")
+      val member = guild.retrieveMemberById(dbMember.discordId).await() ?: error("Member left guild")
+      dbGuild
+        .allRoles
+        .filterNotNull()
+        .mapNotNull { guild.getRoleById(it) }
+        .forEach {
+          guild.removeRoleFromMember(member, it).await()
+          delay(500)
+        }
+    }
+  }
+}.printException().let { }

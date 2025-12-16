@@ -91,8 +91,7 @@ fun JDA.roleCommands() {
     +event.messageChannel.sendMessage(MessageCreate {
       embeds += Embed {
         title = "Choose your roles"
-        description =
-          "Because Discord won't let us use onboarding without at least a dozen (no exaggeration) channels publicly visible from the start!"
+        description = "Get them before they are sold out!"
         author(
           name = selfUser.asTag,
           iconUrl = selfUser.effectiveAvatarUrl
@@ -138,7 +137,10 @@ fun JDA.roleCommands() {
   }
 }
 
-suspend fun setRoleCommand(event: GenericCommandInteractionEvent, setRole: Guild.(String) -> Unit) {
+suspend fun setRoleCommand(
+  event: GenericCommandInteractionEvent,
+  setRole: Guild.(String) -> Unit
+) {
   val role = event.getOption<Role>("role")!!
   +event.deferReply(true)
 

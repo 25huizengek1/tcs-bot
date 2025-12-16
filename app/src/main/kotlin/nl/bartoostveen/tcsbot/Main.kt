@@ -98,13 +98,21 @@ fun main(args: Array<String>) {
     routing {
       get("/") {
         call.respondText(
-          "Greetings! You have reached the TCS bot auth server. " +
-            "There is nothing really you can do without being a part of our Discord server. " +
-            "How did you even get here?"
+          """
+            Greetings! You have reached the TCS bot auth server.
+            There is nothing really you can do without being a part of our Discord server.
+
+            How did you even get here?
+          """.trimIndent()
         )
       }
 
-      authRouter(jda)
+      AppConfig.redisClient?.let {
+        authRouter(
+          jda = jda,
+          redis = it
+        )
+      }
     }
   }.start(wait = true)
 }
@@ -121,7 +129,6 @@ private fun Application.statusPages() = install(StatusPages) {
     when (cause) {
       // breaks because of coroutine hierarchy, but may still be useful to logging
       is PSQLException -> cause.printStackTrace()
-//      is SQLiteException, is PSQLException -> cause.printStackTrace()
 
       is HttpResponseException -> call.respondText(
         text = "${cause.code}: ${cause.body}",

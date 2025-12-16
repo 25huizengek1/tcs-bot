@@ -53,7 +53,12 @@ fun JDA.modCommands() {
         embeds = listOf(
           Embed(
             title = "Kicked from the server",
-            description = "You got kicked from **${member.guild.name}**\n\nReason: $reason\nContact the moderators in order to appeal."
+            description = """
+              You got **kicked** from **${member.guild.name}**
+
+              Reason: $reason
+              Contact the moderators in order to appeal.
+            """.trimIndent()
           )
         )
       ).await()
@@ -79,7 +84,12 @@ fun JDA.modCommands() {
         embeds = listOf(
           Embed(
             title = "Banned from the server",
-            description = "You got banned from **${member.guild.name}**\n\nReason: $reason\nContact the moderators in order to appeal."
+            description = """
+              You got **banned** from **${member.guild.name}**
+
+              Reason: $reason
+              Contact the moderators in order to appeal.
+            """.trimIndent()
           )
         )
       ).await()

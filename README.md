@@ -1,6 +1,6 @@
 # `tcs-bot`
 
-Discord bot that verifies members of unofficial TCS @ UT Discord servers.
+Simple Discord bot that verifies members of unofficial TCS @ UT Discord servers.
 
 ![Screenshot of the verification embed in Discord](/screenshot.png)
 
@@ -20,17 +20,20 @@ or, for the non-purists:
 $ ./gradlew installDist
 ```
 
+(and if you are on Windows: good luck)
+
 ## Environment variables
 
 These variables are automatically loaded from the current working directory's `.env` file.
 
-- `DISCORD_ACCESS_TOKEN`: Discord Bot token (**required**)
 - `CANVAS_ACCESS_TOKEN`: Canvas access token (**required**)
 - `CANVAS_BASE_URL`: (default: `https://canvas.utwente.nl`)
+- `CANVAS_CA_BUNDLE`: ca bundle pointing to recent ca bundle (set of globally trusted certificates) (recommended: Canvas
+  uses fairly new root certificates that are not yet bundled with a lot of JDKs) (example: `/etc/ssl/certs/ca-bundle.crt`)
 
 
 - `REDIS_CONNECTION_STRING`: connection string for the Redis/Valkey cache (default: `localhost:6379`)
-- `DATABASE_CONNECTION_STRING`: connection string for the SQlite/PostgreSQL database (default: `jdbc:sqlite:db.sqlite`)
+- `DATABASE_CONNECTION_STRING`: connection string for the PostgreSQL database (**required**)
 - `DATABASE_USERNAME`: database username (default: `null`)
 - `DATABASE_PASSWORD`: database username (default: `null`)
 
@@ -48,4 +51,5 @@ These variables are automatically loaded from the current working directory's `.
   default: "100")
 
 
-- `DISCORD_DEPLOYER_ID`: list of users with bot management permissions
+- `DISCORD_ACCESS_TOKEN`: Discord Bot token (**required**)
+- `DISCORD_DEPLOYER_ID`: list of users with bot management permissions (comma-separated) (**required**)

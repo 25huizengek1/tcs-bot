@@ -1,5 +1,5 @@
 {
-  description = "Generic devshell flake";
+  description = "Discord bot that verifies members of unofficial TCS @ UT Discord servers";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";

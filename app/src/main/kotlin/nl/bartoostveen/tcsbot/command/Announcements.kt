@@ -14,19 +14,14 @@ import dev.minn.jda.ktx.messages.send
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import net.dv8tion.jda.api.JDA
-import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction
-import nl.bartoostveen.tcsbot.util.adminPermissions
 import nl.bartoostveen.tcsbot.canvas.Announcement
 import nl.bartoostveen.tcsbot.canvas.getNewAnnouncements
 import nl.bartoostveen.tcsbot.database.Guild
 import nl.bartoostveen.tcsbot.database.editGuild
 import nl.bartoostveen.tcsbot.database.getGuild
-import nl.bartoostveen.tcsbot.util.printException
-import nl.bartoostveen.tcsbot.util.suspendTransaction
-import nl.bartoostveen.tcsbot.util.trimmedAsDescription
-import nl.bartoostveen.tcsbot.util.unaryPlus
+import nl.bartoostveen.tcsbot.util.*
 import org.jetbrains.exposed.v1.dao.with
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
@@ -121,8 +116,14 @@ fun JDA.sendAnnouncements(guildId: String, channelId: String, text: String?, ann
       )?.queue()
   }
 
-fun startCron(jda: JDA): () -> Unit {
-  val coroutineScope = CoroutineScope(Dispatchers.IO)
+// TODO: Should probably extract out the 'being able to restart a loop' part
+/**
+ * @return The reload function of the ongoing cron
+ */
+fun startCron(
+  jda: JDA,
+  coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
+): () -> Unit {
   val reloadChannel = Channel<Unit>()
 
   coroutineScope.launch {
@@ -133,8 +134,9 @@ fun startCron(jda: JDA): () -> Unit {
             suspendTransaction {
               Guild.all().with(Guild::courses).forEach { guild ->
                 val channel = guild.announcementChannel ?: return@forEach
+
                 runCatching {
-                  // wrapped inside another transaction so if one guild fails we dont bail out
+                  // wrapped inside another transaction so if one guild fails we don't bail out
                   val announcements = suspendTransaction { getNewAnnouncements(guild) }
                   jda.sendAnnouncements(
                     guildId = guild.discordId,

@@ -32,29 +32,36 @@ fun internalServerError(
 /**
  * type should correspond to TrustManager return type e.g. X.509 => X509TrustManager
  */
-inline fun <reified T : TrustManager> buildTrustManager(
+private inline fun <reified T : TrustManager> buildTrustManager(
   path: String,
-  type: String = "X.509"
+  type: String
 ): T {
-  val ks = KeyStore.getInstance(KeyStore.getDefaultType())
-  ks.load(null, null)
+  val keyStore = KeyStore.getInstance(KeyStore.getDefaultType())
+  keyStore.load(null, null)
   val certificateFactory = CertificateFactory.getInstance(type)
 
   File(path).inputStream().use { input ->
-    val all = input.readBytes()
-    val regex = "-----BEGIN CERTIFICATE-----[\\s\\S]+?-----END CERTIFICATE-----".toRegex()
-    val matches = regex.findAll(all.decodeToString())
-
-    matches.forEachIndexed { i, match ->
-      runCatching {
-        val certBytes = match.value.toByteArray()
-        val cert = certificateFactory.generateCertificate(certBytes.inputStream())
-        ks.setCertificateEntry("cert-$i", cert)
-      }.exceptionOrNull()?.printStackTrace()
-    }
+    "-----BEGIN CERTIFICATE-----[\\s\\S]+?-----END CERTIFICATE-----".toRegex()
+      .findAll(input.readBytes().decodeToString())
+      .forEachIndexed { i, match ->
+        runCatching {
+          val cert = certificateFactory.generateCertificate(
+            match
+              .value
+              .toByteArray()
+              .inputStream()
+          )
+          keyStore.setCertificateEntry("cert-$i", cert)
+        }.exceptionOrNull()?.printStackTrace()
+      }
   }
 
-  val tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
-  tmf.init(ks)
-  return tmf.trustManagers.filterIsInstance<T>().first()
+  return TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+    .apply {
+      init(keyStore)
+    }.trustManagers
+    .filterIsInstance<T>()
+    .first()
 }
+
+fun buildTrustManager(path: String) = buildTrustManager<X509TrustManager>(path, "X.509")

@@ -44,26 +44,26 @@ suspend fun getRole(
   roleId: String,
   menuName: String = defaultMenuName
 ) = suspendTransaction {
-    (GuildRoles innerJoin Guilds)
-        .select(GuildRoles.columns)
-        .where {
-            (Guilds.discordId eq guildId) and
-                    (GuildRoles.discordId eq roleId) and
-                    (GuildRoles.menuName eq menuName)
-        }
-        .let { GuildRole.wrapRows(it) }
-        .firstOrNull()
+  (GuildRoles innerJoin Guilds)
+    .select(GuildRoles.columns)
+    .where {
+      (Guilds.discordId eq guildId) and
+        (GuildRoles.discordId eq roleId) and
+        (GuildRoles.menuName eq menuName)
+    }
+    .let { GuildRole.wrapRows(it) }
+    .firstOrNull()
 }
 
 suspend fun getRoles(
   guildId: String,
   menuName: String = defaultMenuName
 ) = suspendTransaction {
-    (GuildRoles innerJoin Guilds)
-        .select(GuildRoles.columns)
-        .where { (Guilds.discordId eq guildId) and (GuildRoles.menuName eq menuName) }
-        .let { GuildRole.wrapRows(it) }
-        .toList()
+  (GuildRoles innerJoin Guilds)
+    .select(GuildRoles.columns)
+    .where { (Guilds.discordId eq guildId) and (GuildRoles.menuName eq menuName) }
+    .let { GuildRole.wrapRows(it) }
+    .toList()
 }
 
 // everything should change when calling this, which is why this does not take an "operation"
@@ -73,14 +73,14 @@ suspend fun editRole(
   description: String? = null,
   menuName: String = defaultMenuName
 ) = suspendTransaction {
-    val guild = getGuild(guildId) ?: Guild.new { this.discordId = guildId }
+  val guild = getGuild(guildId) ?: Guild.new { this.discordId = guildId }
 
-    GuildRoles.upsert(GuildRoles.discordId, GuildRoles.guild) {
-        it[this.guild] = guild.id
-        it[this.discordId] = roleId
-        it[this.description] = description
-        it[this.menuName] = menuName
-    }
+  GuildRoles.upsert(GuildRoles.discordId, GuildRoles.guild) {
+    it[this.guild] = guild.id
+    it[this.discordId] = roleId
+    it[this.description] = description
+    it[this.menuName] = menuName
+  }
 }
 
 suspend fun removeRole(
@@ -88,9 +88,9 @@ suspend fun removeRole(
   roleId: String,
   menuName: String = defaultMenuName
 ) = suspendTransaction {
-    (GuildRoles innerJoin Guilds).delete(GuildRoles) {
-        (Guilds.discordId eq guildId) and
-                (GuildRoles.discordId eq roleId) and
-                (GuildRoles.menuName eq menuName)
-    }
+  (GuildRoles innerJoin Guilds).delete(GuildRoles) {
+    (Guilds.discordId eq guildId) and
+      (GuildRoles.discordId eq roleId) and
+      (GuildRoles.menuName eq menuName)
+  }
 }

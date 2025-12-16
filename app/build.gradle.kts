@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "nl.bartoostveen.tcsbot"
-version = "1.0.0"
+version = "1.0.1"
 
 configurations.all {
   resolutionStrategy {
@@ -54,15 +54,10 @@ dependencies {
 
   implementation(libs.kotlinx.datetime)
   implementation(libs.kotlinx.coroutines.core)
-  testImplementation(libs.kotlinx.coroutines.test)
 
   implementation(libs.flexmark.md)
   implementation(libs.jwt)
   implementation(libs.jwt.jwks)
-
-  testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-  testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-  testImplementation(libs.junit.jupiter.engine)
 }
 
 kotlin {
@@ -76,8 +71,4 @@ kotlin {
 
 application {
   mainClass = "nl.bartoostveen.tcsbot.MainKt"
-}
-
-tasks.named<Test>("test") {
-  useJUnitPlatform()
 }

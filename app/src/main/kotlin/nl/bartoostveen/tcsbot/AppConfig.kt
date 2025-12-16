@@ -33,6 +33,7 @@ object AppConfig {
     delimiter: Char = ',',
     mapper: (String) -> T
   ): (String) -> List<T> = { it.split(delimiter).map(mapper) }
+
   private fun list(delimiter: Char = ',') = list(delimiter, id)
 
   private inline fun <reified T : Enum<T>> enum(): (String) -> T = {
@@ -41,7 +42,7 @@ object AppConfig {
 
   private val required = { error("Property required, but not given!") }
 
-  private fun <T : Any> variable(
+  private fun <T> variable(
     default: () -> T,
     mapper: (String) -> T,
     envName: String? = null
@@ -69,9 +70,10 @@ object AppConfig {
   val DISCORD_ACCESS_TOKEN by variable()
   val CANVAS_ACCESS_TOKEN by variable()
   val CANVAS_BASE_URL by variable({ "https://canvas.utwente.nl" }, id)
+  val CANVAS_CA_BUNDLE by variable({ null }, id)
 
   val REDIS_CONNECTION_STRING by variable({ "localhost:6379" }, id)
-  val DATABASE_CONNECTION_STRING by variable({ "jdbc:sqlite:db.sqlite" }, id)
+  val DATABASE_CONNECTION_STRING by variable()
   val DATABASE_USERNAME by variable({ "" }, id)
   val DATABASE_PASSWORD by variable({ "" }, id)
 
