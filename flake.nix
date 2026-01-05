@@ -64,7 +64,7 @@
             GRADLE_JAVA_HOME = pkgs.jdk.home;
           };
         in
-        {
+        rec {
           _module.args.pkgs = pkgs;
 
           treefmt = {
@@ -93,6 +93,21 @@
           packages.default = (pkgs.callPackage ./package.nix { inherit version; }).overrideAttrs {
             inherit env;
           };
+
+          packages.cache =
+            with pkgs;
+            writeShellApplication {
+              name = "cache";
+
+              runtimeInputs = [
+                attic-client
+              ];
+
+              text = ''
+                attic login cache https://attic.bartoostveen.nl "$ATTIC_TOKEN"
+                attic push tcs-bot ${packages.default}
+              '';
+            };
         };
     };
 }
