@@ -12,6 +12,7 @@
       "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
       "tcs-bot:cUYt7f0r3vvOriZybjYHTKK+jFuJPdOrPII4aXBi+1Q="
     ];
+    always-allow-substitutes = true;
   };
 
   inputs = {
@@ -104,8 +105,12 @@
               ];
 
               text = ''
-                attic login cache https://attic.bartoostveen.nl "$ATTIC_TOKEN"
-                attic push tcs-bot ${packages.default}
+                if [[ -v ATTIC_TOKEN ]]; then
+                  attic login tcs-bot-cache https://attic.bartoostveen.nl "$ATTIC_TOKEN"
+                  attic push tcs-bot-cache:tcs-bot ${packages.default}
+                else
+                  attic push tcs-bot ${packages.default}
+                fi
               '';
             };
         };
