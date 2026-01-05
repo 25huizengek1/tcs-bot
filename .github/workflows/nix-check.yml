@@ -14,4 +14,4 @@ jobs:
 
       - uses: cachix/install-nix-action@v31
 
-      - run: nix flake check -L --accept-flake-config
+      - run: nix fmt -L --accept-flake-config -- --ci
