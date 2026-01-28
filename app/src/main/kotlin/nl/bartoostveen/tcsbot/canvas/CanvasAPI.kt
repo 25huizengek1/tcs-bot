@@ -47,7 +47,6 @@ sealed class CanvasAPI(
         retryOnTimeout = true
       )
     }
-    install(HttpCache)
     defaultRequest {
       url(baseUrl)
     }
