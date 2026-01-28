@@ -165,6 +165,7 @@ data class CourseUser(
 ) {
   @Serializable
   data class Enrollment(
+    @SerialName("type")
     val role: Role
   ) {
     @Serializable
