@@ -76,6 +76,9 @@ fun main(args: Array<String>) {
     jda.announceCommands()
     jda.courseCommands()
     jda.modCommands()
+    AppConfig.redisClient?.let { redis ->
+      jda.queueCommands(redis = redis)
+    }
     jda.roleCommands()
     jda.utilityCommands()
     jda.verifyCommands()
