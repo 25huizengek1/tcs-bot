@@ -34,6 +34,12 @@ fun JDA.queueCommands(redis: KredsClient) {
       return@onCommand +event.hook.editOriginal("Joining queue failed for some reason")
     }
 
-    +event.hook.editOriginal(if (other == null) "Joined the queue" else "You got paired with ${other.asMention}!")
+    +event.hook.editOriginal(
+      when {
+        other == null -> "Joined the queue"
+        other.id == event.user.id -> "You left the queue."
+        else -> "You got paired with ${other.asMention}!"
+      }
+    )
   }
 }
